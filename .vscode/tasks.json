@@ -2,6 +2,20 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "机械臂连接自检（不使能）",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/control_linux.sh", "doctor"],
+      "problemMatcher": []
+    },
+    {
+      "label": "只读探测 B601-RS 电机",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/control_linux.sh", "probe", "${input:canChannel}"],
+      "problemMatcher": []
+    },
+    {
       "label": "验证 B601-RS 运动学",
       "type": "process",
       "command": "${workspaceFolder}/.venv-kinematics/bin/python",
@@ -46,6 +60,14 @@
         "isDefault": true
       },
       "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "canChannel",
+      "type": "promptString",
+      "description": "已确认的Linux CAN接口（不带@波特率）",
+      "default": "can0"
     }
   ]
 }

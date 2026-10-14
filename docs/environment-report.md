@@ -79,3 +79,26 @@ FK生成目标的局部IK回环不是通用抓取规划，碰撞几何加载也�
 新增18项测试后，全项目34项测试通过，Ruff、配置格式和回放检查通过。
 容量、抓持、对准、物理停止与余流仍未经过实物验证；现有COCO模型不含茶壶类别。
 GitHub目标为ZSMDTR/Tea-Pouring-System-Based-on-Visual-Imitation-Learning，保留私有可见性。
+
+## 机械臂首次接入准备
+
+当前暂缓杯子/相机逻辑，优先PC连接与官方控制界面。
+Windows新增独立.venv-control-win，Python3.13.13、MotorBridge0.5.6原生ABI和网关help通过；
+未改变Windows系统Python或视觉虚拟环境。WSL新增can-utils，usbutils已存在。
+Linux内核配置包含CAN/RAW/VCAN/PEAK_USB/GS_USB，匹配模块文件存在。
+
+新增只读connection模块，逐个查询1–7号RS电机，新鲜位置、时刻与错误分开记录；
+不自动使能、失能、校零、改ID或发送运动目标。控制通过官方MotorBridge Studio进行。
+新增Windows/Linux启动脚本、只读doctor和训练入门文档。
+
+本轮验证：
+- Linux全项目48项测试通过，Ruff、shell/PowerShell语法与CLI help通过。
+- Windows控制环境14项新增连接/诊断测试通过。
+- 用隔离rebotvcan0验证真实MotorBridge SDK无响应路径：7电机全部报告离线、位置null，
+  未伪造零或在线，随后删除本次创建的虚拟接口；没有向实际机械臂发送指令。
+- 当前Windows未发现USB-CAN候选，COM9/COM10为蓝牙；未检测到PCANBasic运行库或usbipd-win。
+- 当前WSL无实际CAN接口；校零/参数/实际运动均未验证，不能宣称插线即用。
+
+Windows管理员驱动安装和USB设备首次共享需在对应设备/操作路径确认后完成。
+主臂型号尚未确定；控制不需要主臂，官方Arm102主从示教路线需额外确认主臂。
+LeRobot训练环境和真实训练数据尚未安装/采集，training-start.md中的命令是后续实施说明。

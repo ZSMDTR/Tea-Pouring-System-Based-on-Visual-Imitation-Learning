@@ -9,6 +9,10 @@
 本次选定开发环境：Windows VS Code + WSL2 Ubuntu 22.04 + Python 3.10。
 项目优先放在 Linux 文件系统的 `~/projects/rebot-tea`。
 
+当前工作重点是PC连接和机械臂控制，暂缓杯子与液位功能。
+首次实物接入请先读 [电脑连接与控制](docs/robot-first-connection.md)，
+实物验收后按 [第一次训练](docs/training-start.md) 准备示教数据。
+
 ## 开始使用
 
 在 PowerShell 打开 Linux：
@@ -97,6 +101,8 @@ WSL 设备接入必须在选定适配器后验证；若驱动/USB 透传不适�
 - `docs/hardware-preparation.md`：设备、标定数据和真机接入准备清单。
 - `docs/tea-task.md`：茶壶识别、随机杯定位与90%容量反馈的任务设计及待实现部分。
 - `docs/github-sync.md`：仓库位置、同步范围和后续提交方法。
+- `docs/robot-first-connection.md`：设备自检、探测、官方控制界面与初次校准。
+- `docs/training-start.md`：主臂示教、数据采集、ACT短训练与后续评估。
 
 ## 官方参考
 
