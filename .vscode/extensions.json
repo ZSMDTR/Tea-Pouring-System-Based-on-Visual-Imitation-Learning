@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    "ms-vscode-remote.remote-wsl",
+    "ms-vscode-remote.remote-ssh"
+  ]
+}

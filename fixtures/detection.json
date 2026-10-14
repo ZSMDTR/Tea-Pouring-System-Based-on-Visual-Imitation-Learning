@@ -1,0 +1,11 @@
+{
+  "label": "cup",
+  "confidence": 0.95,
+  "frame": "base",
+  "position_m": [
+    0.3,
+    0,
+    0.08
+  ],
+  "source": "synthetic_demo_only"
+}

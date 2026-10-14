@@ -1,0 +1,20 @@
+{
+  "synthetic": true,
+  "description": "Synthetic semantic mock only. Target volume is 90% of calibrated cup capacity, not 90% of liquid height or detection confidence. Grasp, upstream spout alignment and volume observations are synthetic. No physical measurements are verified.",
+  "cup_id": "cup-demo",
+  "limits": {
+    "target_volume_fraction": 0.9,
+    "min_confidence": 0.9,
+    "max_observation_age_s": 0.25,
+    "cup_motion_tolerance_m": 0.015,
+    "max_pour_duration_s": 10.0
+  },
+  "observations": [
+    {"now_s": 0.0, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.0, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.2, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}},
+    {"now_s": 0.1, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.1, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.45, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}},
+    {"now_s": 0.2, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.2, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.65, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}},
+    {"now_s": 0.3, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.3, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.85, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}},
+    {"now_s": 0.4, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.4, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.91, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}},
+    {"now_s": 0.5, "observation": {"cup_id": "cup-demo", "timestamp_s": 0.5, "position_m": [0.32, -0.05, 0.1], "volume_fraction": 0.5, "confidence": 0.99, "grasp_verified": true, "spout_aligned": true}}
+  ]
+}

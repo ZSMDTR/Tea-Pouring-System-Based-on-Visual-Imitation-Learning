@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "color": "generated/color.png",
+  "depth": "generated/depth.npy",
+  "calibration": "calibration.demo.json",
+  "detections": [
+    {
+      "label": "cup",
+      "confidence": 0.95,
+      "bbox_xyxy": [
+        300,
+        220,
+        340,
+        260
+      ]
+    }
+  ]
+}

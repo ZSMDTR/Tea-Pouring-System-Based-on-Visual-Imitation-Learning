@@ -1,0 +1,30 @@
+{
+  "robot": {
+    "model": "B601-RS",
+    "backend": "mock"
+  },
+  "perception": {
+    "backend": "fixture",
+    "fixture": "../fixtures/detection.json"
+  },
+  "planning": {
+    "frame": "base",
+    "workspace_m": {
+      "x": [
+        0.15,
+        0.45
+      ],
+      "y": [
+        -0.2,
+        0.2
+      ],
+      "z": [
+        0.02,
+        0.35
+      ]
+    },
+    "approach_m": 0.08,
+    "lift_m": 0.12,
+    "min_confidence": 0.8
+  }
+}

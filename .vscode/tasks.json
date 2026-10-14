@@ -1,0 +1,51 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "验证 B601-RS 运动学",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv-kinematics/bin/python",
+      "args": ["scripts/check_kinematics.py", "--output", "artifacts/kinematics-check.json"],
+      "problemMatcher": []
+    },
+    {
+      "label": "完整离线验收",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/verify_all.sh"],
+      "problemMatcher": []
+    },
+    {
+      "label": "检查 Linux 环境",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "scripts/check_environment.py"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "验证抓取架构",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "options": {
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "width": 640,
+  "height": 480,
+  "fx": 500,
+  "fy": 500,
+  "cx": 320,
+  "cy": 240,
+  "depth_scale_m": 0.001,
+  "rectified": true,
+  "depth_aligned_to_color": true,
+  "T_base_camera": [
+    [
+      1,
+      0,
+      0,
+      0.3
+    ],
+    [
+      0,
+      -1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      -1,
+      0.6
+    ],
+    [
+      0,
+      0,
+      0,
+      1
+    ]
+  ]
+}

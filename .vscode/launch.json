@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "90%容量倒茶反馈回放（无硬件）",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/replay_pouring.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "离线 RGB-D 抓取回放",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rebot_tea.replay",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "图片杯子检测（选择图片）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rebot_tea.vision",
+      "args": ["--image", "${input:imagePath}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "模拟抓取（无硬件）",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "rebot_tea",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "args": [
+        "--config",
+        "config/simulation.json"
+      ],
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "imagePath",
+      "type": "promptString",
+      "description": "Linux 中的图片路径",
+      "default": "fixtures/generated/color.png"
+    }
+  ]
+}
