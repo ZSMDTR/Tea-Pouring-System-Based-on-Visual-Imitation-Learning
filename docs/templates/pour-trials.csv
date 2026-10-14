@@ -1,0 +1,1 @@
+trial_id,cup_id,capacity_ml,final_volume_ml,stop_requested_time_s,flow_stopped_time_s,measured_volume_at_stop_ml,spill,measurement_method,notes

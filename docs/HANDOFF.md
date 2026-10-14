@@ -22,7 +22,8 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 
 - `.venv`：主环境，Python 3.10；MotorBridge 0.5.6、PyTorch 2.10.0+cu128、torchvision 0.25.0+cu128、OpenCV 4.12。
 - `.venv-kinematics`：独立运动学环境，Pinocchio 3.9.0。
-- `.venv-training`：尚未建立，后续 LeRobot 训练用。
+- `.venv-training`：已建立独立 Conda 前缀环境，Python 3.12.15、LeRobot 0.6.2 固定提交；
+  PyTorch 2.10.0/CUDA 12.8、TorchVision 0.25.0、TorchCodec 0.10.0、PyAV 15.1.0。
 - 机器此前识别为 RTX 5060 Laptop，约 8 GB 显存；WSL 中有 ROS 2 Humble，但当前主流程未依赖 ROS。
 - Windows 的 `.venv-control-win` 是另一套环境，不与 WSL 环境混用。
 - 官方 Python SDK 源码在 `vendor/reBotArm_control_py`，固定上游提交 `6415d43130d1e143c70dc106096a857ac5556f81`。
@@ -35,6 +36,8 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 - B601-RS MotorBridge 只读连接探测：检查 1–7 号电机在线与新鲜位置。ID 1–3 配置 rs-06，4–7 配置 rs-00，主机 ID 0xFD。
 - Linux/Windows 连接诊断脚本、CAN 配置入口和官方 MotorBridge gateway 启动入口。
 - URDF 运动学 FK/Jacobian 数值检查及 IK 往返演示。
+- 七轴公共坐标受限轨迹与 mock 故障处理，原生 LeRobot 合成数据检查，
+  ACT 100步GPU训练、检查点/处理器重载，以及现场记录和验收工具。
 
 **未实现真实机械臂动作控制、真实抓取、茶壶任务训练或实物水量反馈。**
 
@@ -64,10 +67,11 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 
 1. USB-CAN 型号、驱动和由 Windows/WSL 哪一侧持有尚未确定；真实 CAN 接口和机械臂从未连通验证。
 2. 1–7 号电机在线状态、固件、零位校准、参数读回及运动方向待现场确认。
-3. 项目没有经过安全限位、速度限制、到位反馈和超时处理的真实运动执行层；示例工作范围不是实测安全范围。
+3. 项目已具备限位、速度/加速度、到位反馈与超时的模拟控制层和接口，
+   尚未接入或验证真实运动后端；示例参数不是实测安全参数。
 4. IK 数学演示不验证真实可达性、碰撞、TCP 或负载；当前没有 SRDF 自碰撞配置。
-5. 相机型号/标定、示教主臂、茶壶检测数据和 LeRobot 环境尚缺。
-6. 茶壶专用抓取策略未训练；不透明杯达到 90% 的实物反馈与停流方案未设计。
+5. 相机型号/标定、示教主臂与实际茶壶数据尚缺；LeRobot 环境和合成软件链路已准备。
+6. 茶壶专用抓取策略未训练；不透明杯的实际反馈传感、余流测量和停流策略待现场验证。
 7. Git 状态和远端应由新对话重新检查；交接文件是否已提交不能假定。
 
 ## 7. 下一步具体任务
@@ -137,3 +141,23 @@ bash scripts/control_linux.sh probe can0
   远端查询因认证不可用而失败；本轮未 commit/push，本文件仍未跟踪。
 - 后续先插入适配器并获取实际型号/硬件 ID，再选独占接入路径；详细复核记录见
   `docs/environment-report.md` 的“新会话接手复核”。
+
+## 10. 实物前软件准备实施（2026-10-14）
+
+第9节保留接手时的快照。当前软件工作已按用户批准的计划实施：
+
+- 基线保存为 `2d3454c`；本轮功能在完整验收后另行提交并尝试普通推送。
+- 七轴顺序、公共关节rad、五次轨迹和50Hz模拟控制已实现；故障终态不自动恢复，
+  仅mock后端，无SDK动作适配。合成限值与未填写的现场模板分开保存。
+- LeRobot固定提交 `ae2b57f12223c8c5184fcd814eb63cd9ce7de203`，训练环境已建立，
+  两份训练依赖锁定文件和初始化/启动入口已提供。
+- 原生合成数据5条×120帧、20Hz、224×224 RGB，公共deg，动作来自实际mock目标；
+  episodes 0–3训练，episode 4验证。质量、损坏视频和字段/划分错误检查已实现。
+- ACT默认结构、batch2、100步GPU训练、检查点及预/后处理器重载已通过；
+  所有结果标记synthetic且不证明物理任务成功。数据与检查点未上传。
+- 现场接入表、COCO茶壶/杯标注、示教检查/失败分类、SHA-256备份及任务CSV统计已准备。
+  用户选择首版标准：空壶抓放20次至少18次成功，倒茶90%容量允许±5个百分点。
+- 完整入口：`bash scripts/verify_all.sh --with-training`；
+  主报告 `artifacts/prehardware-report.json`，日志 `artifacts/prehardware-verification.log`。
+- 详细运行说明见 `docs/prehardware-development.md`；实物顺序与交接仍从P1设备识别继续。
+  USB-CAN尚未插入，未执行总线配置、探测、校准、参数写入或实物运动。

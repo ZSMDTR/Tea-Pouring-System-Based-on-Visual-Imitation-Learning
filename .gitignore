@@ -12,6 +12,7 @@ build/
 dist/
 .pytest_cache/
 data/
+outputs/
 models/
 .env
 .env.*

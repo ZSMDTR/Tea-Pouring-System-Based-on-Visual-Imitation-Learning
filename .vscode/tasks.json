@@ -2,6 +2,20 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "实物前完整验收（含 ACT 合成训练）",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/verify_all.sh", "--with-training"],
+      "problemMatcher": []
+    },
+    {
+      "label": "受限关节控制模拟（无硬件）",
+      "type": "process",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["scripts/verify_joints.py"],
+      "problemMatcher": []
+    },
+    {
       "label": "机械臂连接自检（不使能）",
       "type": "process",
       "command": "bash",

@@ -13,6 +13,14 @@
 首次实物接入请先读 [电脑连接与控制](docs/robot-first-connection.md)，
 实物验收后按 [第一次训练](docs/training-start.md) 准备示教数据。
 
+实物前的软件链路已补齐：受限关节模拟 → 原生 LeRobot 合成数据 → ACT 100步 GPU训练
+→ 策略与预处理器重载。详见 [实物前开发与验收](docs/prehardware-development.md)。
+运行 `bash scripts/verify_all.sh --with-training` 完整检查，报告写入
+`artifacts/prehardware-report.json`。合成训练不代表已学会抓壶或倒茶。
+现场记录、标注/备份和任务验收分别见
+[接入记录](docs/commissioning-record.md)、[数据规范](docs/data-collection.md)、
+[任务验收](docs/task-acceptance.md)。
+
 ## 开始使用
 
 在 PowerShell 打开 Linux：

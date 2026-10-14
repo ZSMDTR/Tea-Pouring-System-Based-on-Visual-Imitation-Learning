@@ -3,8 +3,9 @@
 控制机械臂和训练模型是两个阶段。先通过robot-first-connection.md中的通信、校零、
 参数和小幅运动验收；此时不需要相机或训练。不要先启动训练代码来判断接线是否正确。
 
-本项目已提供离线视觉/几何/控制逻辑基础，没有完成真实示教到LeRobotDataset的接入，
-也没有已经训练好的抓壶策略。以下是在实物验收后的实施步骤。
+本项目已提供离线视觉/几何、受限关节模拟和原生 LeRobot 合成数据训练链路，
+没有完成真实示教采集接入，也没有已经训练好的抓壶策略。
+合成软件验收见 prehardware-development.md；以下是在实物验收后的实施步骤。
 
 ## 1. 第一个学习任务只做空茶壶抓放
 
@@ -28,22 +29,23 @@
 
 ## 3. 独立训练环境，固定版本
 
-保留现有Python3.10项目环境，训练另建Python3.12环境。
-本次文档快照：huggingface/lerobot提交
+保留现有Python3.10项目环境；独立Python3.12训练环境现已建立，为项目内的
+`.venv-training` Conda前缀环境，通过脚本直接调用，不需要激活或重新创建。
+固定huggingface/lerobot提交
 ae2b57f12223c8c5184fcd814eb63cd9ce7de203（2026-10-14查询）。
 
-Linux环境示例，需先准备Python3.12；本轮未安装或运行这套训练栈：
+现有机器检查与换机初始化：
 
 ```bash
-git clone https://github.com/huggingface/lerobot.git vendor/lerobot
-git -C vendor/lerobot checkout ae2b57f12223c8c5184fcd814eb63cd9ce7de203
-python3.12 -m venv .venv-training
-source .venv-training/bin/activate
-python -m pip install -e "./vendor/lerobot[rebot]"
+bash scripts/training.sh check
+# 仅在换机/环境缺失时初始化：
+bash scripts/bootstrap_training.sh
 ```
 
 当前主仓库内置名称为rebot_b601_follower（同时motor_family=rs）和rebot_102_leader。
 不要混用旧Seeed外部插件名称seeed_b601_rs_follower/rebot_arm_102_leader。
+初始化脚本安装rebot、training、core_scripts依赖并锁定版本；单装rebot不包含完整训练/数据功能。
+本轮已通过合成数据100步GPU训练及检查点重载，真实示教训练尚未进行。
 配套[固定版本设备说明](https://github.com/huggingface/lerobot/blob/ae2b57f12223c8c5184fcd814eb63cd9ce7de203/docs/source/rebot_b601.mdx)。
 
 ## 4. 校准与遥操
@@ -52,9 +54,10 @@ python -m pip install -e "./vendor/lerobot[rebot]"
 这些命令会涉及实物校准或运动，仅在机械台架与前述验收就绪后执行：
 
 ```bash
-lerobot-calibrate --robot.type=rebot_b601_follower --robot.motor_family=rs --robot.port=can0 --robot.id=follower
-lerobot-calibrate --teleop.type=rebot_102_leader --teleop.port=/dev/ttyUSB0 --teleop.id=leader
-lerobot-teleoperate --robot.type=rebot_b601_follower --robot.motor_family=rs --robot.port=can0 --robot.id=follower --teleop.type=rebot_102_leader --teleop.port=/dev/ttyUSB0 --teleop.id=leader
+export LD_LIBRARY_PATH="$PWD/.venv-training/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+.venv-training/bin/lerobot-calibrate --robot.type=rebot_b601_follower --robot.motor_family=rs --robot.port=can0 --robot.id=follower
+.venv-training/bin/lerobot-calibrate --teleop.type=rebot_102_leader --teleop.port=/dev/ttyUSB0 --teleop.id=leader
+.venv-training/bin/lerobot-teleoperate --robot.type=rebot_b601_follower --robot.motor_family=rs --robot.port=can0 --robot.id=follower --teleop.type=rebot_102_leader --teleop.port=/dev/ttyUSB0 --teleop.id=leader
 ```
 
 按该版本的官方校准姿态操作，保持同一robot.id/teleop.id以复用标定。
@@ -63,8 +66,8 @@ lerobot-teleoperate --robot.type=rebot_b601_follower --robot.motor_family=rs --r
 ## 5. 接入相机并记录演示
 
 控制阶段可不使用相机；训练视觉策略时必须恢复相机和同步视频。
-运行lerobot-find-cameras opencv确定摄像头，保持安装位置与字段名称一致。
-使用官方记录命令lerobot-record，配置RS从臂、实际主臂、实际camera以及：
+运行`.venv-training/bin/lerobot-find-cameras opencv`确定摄像头，保持安装位置与字段名称一致。
+使用官方记录命令`.venv-training/bin/lerobot-record`，配置RS从臂、实际主臂、实际camera以及：
 
 - dataset.repo_id=local/empty-teapot-test。
 - dataset.root指向一个新数据集目录，dataset.single_task描述空壶抓放。
@@ -76,10 +79,12 @@ lerobot-teleoperate --robot.type=rebot_b601_follower --robot.motor_family=rs --r
 
 ## 6. 用ACT做一次短训练验证
 
-准备好真实LeRobotDataset后，才执行下列示例；当前没有执行该训练：
+准备好真实LeRobotDataset后，才执行下列示例；当前仅执行了合成软件训练检查。
+下列命令应在训练环境中运行，直接使用 `.venv-training/bin/lerobot-train`，
+并参考 scripts/training.sh 中训练进程的库路径设置；实际相机字段和公共关节单位先核对。
 
 ```bash
-lerobot-train \
+.venv-training/bin/lerobot-train \
   --dataset.repo_id=local/empty-teapot-test \
   --dataset.root=/absolute/path/to/recorded-dataset \
   --policy.type=act \
