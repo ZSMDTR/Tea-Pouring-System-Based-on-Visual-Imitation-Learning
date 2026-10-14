@@ -1,0 +1,159 @@
+{
+  "verification_date": "2026-10-14",
+  "timezone": "Asia/Shanghai",
+  "verification_kind": "prehardware-software-only",
+  "passed": true,
+  "implementation_commit": "0b716a5",
+  "tested_before_commit": true,
+  "original_report_head": "2d3454c38be559e02bfc457a4fe113bd45b3bebc",
+  "physical_task_verified": false,
+  "tests": {
+    "core_passed": 74,
+    "video_integration_passed": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  "environment": {
+    "versions": {
+      "lerobot": "0.6.2",
+      "torch": "2.10.0",
+      "torchvision": "0.25.0",
+      "torchcodec": "0.10.0",
+      "av": "15.1.0",
+      "motorbridge": "0.5.6",
+      "datasets": "4.8.5"
+    },
+    "lerobot_commit": "ae2b57f12223c8c5184fcd814eb63cd9ce7de203",
+    "torch_build": "2.10.0+cu128",
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "pip_check": "No broken requirements found."
+  },
+  "dataset": {
+    "passed": true,
+    "errors": [],
+    "frames_checked": 600,
+    "episodes_checked": 5,
+    "train_episodes": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "validation_episodes": [
+      4
+    ],
+    "synthetic": true,
+    "position_units": "public_joint_degrees",
+    "video_backend": "pyav",
+    "physical_task_verified": false
+  },
+  "joint_scenarios": [
+    {
+      "scenario": "normal",
+      "passed": true,
+      "state": "completed",
+      "reason": "arrival_confirmed"
+    },
+    {
+      "scenario": "lag",
+      "passed": true,
+      "state": "aborted",
+      "reason": "ValueError: stale_feedback"
+    },
+    {
+      "scenario": "missing",
+      "passed": true,
+      "state": "aborted",
+      "reason": "ValueError: missing_feedback"
+    },
+    {
+      "scenario": "stalled",
+      "passed": true,
+      "state": "aborted",
+      "reason": "motion_timeout"
+    },
+    {
+      "scenario": "communication",
+      "passed": true,
+      "state": "aborted",
+      "reason": "OSError: synthetic CAN communication failure"
+    }
+  ],
+  "act": {
+    "steps": 100,
+    "batch_size": 2,
+    "training_loss_last": 5.336867046356201,
+    "validation_loss": 1.1035360097885132,
+    "gpu_peak_last_training_step_bytes": 1011996160,
+    "processors_reloaded": true,
+    "prediction_shape": [
+      1,
+      7
+    ],
+    "prediction_units": "public_joint_degrees",
+    "pretrained_backbone_weights": null,
+    "remote_upload": false,
+    "checkpoint_relative_path": "outputs/train/synthetic-act-1791975706300549051/checkpoints/000100/pretrained_model"
+  },
+  "vision": {
+    "vision_cpu": {
+      "torch": "2.10.0+cu128",
+      "device": "cpu",
+      "inference": "passed",
+      "blank_image_cup_count": 0,
+      "training_step": "not requested",
+      "real_accuracy_verified": false
+    },
+    "vision_cuda": {
+      "torch": "2.10.0+cu128",
+      "device": "cuda",
+      "inference": "passed",
+      "blank_image_cup_count": 0,
+      "training_step": "passed on synthetic input only",
+      "real_accuracy_verified": false,
+      "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+      "capability": [
+        12,
+        0
+      ],
+      "loss": 11.672164916992188
+    }
+  },
+  "kinematics": {
+    "status": "PASS",
+    "commit": "6415d43130d1e143c70dc106096a857ac5556f81",
+    "pinocchio": "3.9.0",
+    "jacobian_max_error": 2.374570459706682e-08,
+    "ik_roundtrip": {
+      "method": "damped least squares, nearby seed, six arm joints only",
+      "converged": true,
+      "iterations": 25,
+      "seed_arm_q_rad": [
+        0.25,
+        0.6599999999999999,
+        1.03,
+        -0.26,
+        0.15000000000000002,
+        0.16
+      ],
+      "solution_arm_q_rad": [
+        0.20000000172384566,
+        0.6999999989457705,
+        1.0000000010775738,
+        -0.29999999903371694,
+        0.19999999856017703,
+        0.10000000181585142
+      ],
+      "position_error_m": 1.4320002462568296e-09,
+      "orientation_error_rad": 5.013938026818931e-09,
+      "all_iterates_within_urdf_limits": true,
+      "target_source": "FK of sample_arm_q_rad, gripper model joints fixed at zero"
+    },
+    "self_collision_checked": false,
+    "collision_free_path_verified": false
+  },
+  "local_full_report": "artifacts/prehardware-report.json",
+  "command": "bash scripts/verify_all.sh --with-training",
+  "note": "Snapshot of the previous executed verification; this documentation-only update did not rerun training."
+}

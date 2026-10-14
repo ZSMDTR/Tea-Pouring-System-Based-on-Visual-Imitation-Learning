@@ -20,6 +20,8 @@
 现场记录、标注/备份和任务验收分别见
 [接入记录](docs/commissioning-record.md)、[数据规范](docs/data-collection.md)、
 [任务验收](docs/task-acceptance.md)。
+实物到位后的完整顺序与每步通过条件见 [实物工作流程](docs/after-hardware-workflow.md)。
+上一轮实测的软件结果见 [可随仓库同步的验收摘要](docs/reports/prehardware-2026-10-14.json)。
 
 ## 开始使用
 

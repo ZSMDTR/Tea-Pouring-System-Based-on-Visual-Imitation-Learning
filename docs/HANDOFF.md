@@ -166,3 +166,20 @@ bash scripts/control_linux.sh probe can0
 已尝试普通 `git push origin main`，当前会话HTTPS认证不可用，Git报告无法读取用户名，
 因此本地main仍有未推送提交；未强制推送、未改变远端仓库可见性。
 后续在已有认证的终端执行普通推送即可，实际远端状态仍需查询确认。
+
+## 11. 实物操作文档与结果同步（2026-10-14）
+
+已补充 `docs/after-hardware-workflow.md`：从装配、USB-CAN、只读通信、校准、手动/程序控制，
+到空壶抓放、相机/示教、数据、ACT、随机杯和水量验收，逐步写明通过条件。
+步骤中的真实执行后端、policy rollout和水量反馈标明需要后续现场开发，未当作已实现。
+本轮只整理文档与同步，未执行任何实物动作。
+
+上一轮实测结果另存 `docs/reports/prehardware-2026-10-14.json`，可随Git上传；
+74项核心测试、4项视频集成测试和ACT100步/重载通过，原始日志和检查点仍在本地。
+本次文档更新不重跑训练，摘要明确保留原验收来源。
+
+当前WSL无Git认证助手/登录凭据，直接启动Windows程序报Exec format error。
+本轮发现可经WSL内部/init转发运行现有Windows Git，正在核对其缓存认证并尝试普通同步。
+已验证该Windows Git/GCM缓存认证可读取远端main（查询时为21d55aa）；
+本轮使用这条路线完成普通推送，保留既有历史和远端可见性。
+推送的最终结果由实际Git输出及交付记录确认；操作方法见 `docs/github-sync.md`。
