@@ -28,6 +28,9 @@ bootstrap 会下载 GPU 依赖及约14MB官方预训练权重。
 docs/kinematics.md。主环境初始化不会覆盖系统 Python 或 ROS。
 完整验收包含真实 CPU/GPU 模型推理及一轮合成训练反向传播，
 仅证明执行环境可用，不能证明实际识别准确率或训练效果。
+验收脚本在自身进程中清除继承的 `PYTHONPATH`，避免终端自动加载的系统 ROS 包
+混入项目虚拟环境。若在已加载 ROS 的终端单独检查项目依赖，可执行
+`env -u PYTHONPATH .venv/bin/python -m pip check`。
 
 ## 检测一张图片
 

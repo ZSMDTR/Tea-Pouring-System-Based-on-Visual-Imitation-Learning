@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+# Keep system ROS packages inherited from the shell out of the project environments.
+unset PYTHONPATH
 .venv/bin/python -m pip check
 .venv/bin/python scripts/check_environment.py --profile gpu
 .venv/bin/ruff check src scripts tests
@@ -13,5 +15,6 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 .venv/bin/python scripts/verify_vision.py --device cpu
 .venv/bin/python scripts/verify_vision.py --device cuda --train-step
 if test -x .venv-kinematics/bin/python; then
+    .venv-kinematics/bin/python -m pip check
     .venv-kinematics/bin/python scripts/check_kinematics.py --output artifacts/kinematics-check.json
 fi

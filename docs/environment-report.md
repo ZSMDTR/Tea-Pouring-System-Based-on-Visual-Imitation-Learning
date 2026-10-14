@@ -102,3 +102,28 @@ Linux内核配置包含CAN/RAW/VCAN/PEAK_USB/GS_USB，匹配模块文件存在�
 Windows管理员驱动安装和USB设备首次共享需在对应设备/操作路径确认后完成。
 主臂型号尚未确定；控制不需要主臂，官方Arm102主从示教路线需额外确认主臂。
 LeRobot训练环境和真实训练数据尚未安装/采集，training-start.md中的命令是后续实施说明。
+
+## 新会话接手复核（2026-10-14）
+
+实际代码仓库为 `/home/zsmdtr/projects/rebot-tea`；会话启动目录
+`/home/zsmdtr/rebot-workspace` 不是 Git 仓库。接手时 HEAD 为 `21d55aa`，
+已跟踪文件无改动，只有未跟踪的 `docs/HANDOFF.md`。
+
+当前终端的 `PYTHONPATH` 含系统 ROS Humble 路径，使主环境的 `pip check`
+误将系统 `launch-ros` 纳入检查并报告缺少 PyYAML。清除该路径后主环境依赖完整，
+无需补装 ROS 依赖。已在 `scripts/verify_all.sh` 内清除继承的 `PYTHONPATH`，
+并增加独立运动学环境的依赖检查。
+
+修改后完整验收脚本退出码为 0：两套环境依赖检查、48 项单元测试、Ruff、
+模拟抓取、RGB-D 和倒茶回放、CPU/GPU 模型推理、合成训练步骤、FK/Jacobian/IK
+全部通过；Bash 脚本语法及 `git diff --check` 通过。
+完整输出保存在本地 `artifacts/offline-verification.log`。
+
+只读连接诊断：MotorBridge 0.5.6 可用，WSL 仅有 lo/eth0，无 CAN 接口；
+`lsusb` 无输出、退出码 1。用户确认 USB-CAN 尚未插入，因此 doctor 退出码 2
+属于设备未就绪的预期结果。本轮未执行 can-up、probe、gateway 或实物运动。
+
+当前会话执行 Windows PowerShell 报 `Exec format error`，未能重查 Windows USB、
+驱动或控制测试。Git 远端查询因非交互认证不可用而失败，不能以本地
+`origin/main` 判断远端实时状态；本轮未提交或推送。
+下一步仍是插入 USB-CAN，识别实际型号/硬件 ID，然后选择 Windows 或 WSL 接入路径。
