@@ -161,3 +161,8 @@ bash scripts/control_linux.sh probe can0
   主报告 `artifacts/prehardware-report.json`，日志 `artifacts/prehardware-verification.log`。
 - 详细运行说明见 `docs/prehardware-development.md`；实物顺序与交接仍从P1设备识别继续。
   USB-CAN尚未插入，未执行总线配置、探测、校准、参数写入或实物运动。
+
+本轮功能提交为 `0b716a5`，完整验收通过（74项核心测试及4项视频集成测试）。
+已尝试普通 `git push origin main`，当前会话HTTPS认证不可用，Git报告无法读取用户名，
+因此本地main仍有未推送提交；未强制推送、未改变远端仓库可见性。
+后续在已有认证的终端执行普通推送即可，实际远端状态仍需查询确认。
