@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-15",
+  "verification_kind": "offline-camera-integration-and-ACT-regression",
+  "passed": true,
+  "physical_camera_streaming_verified": false,
+  "physical_task_verified": false,
+  "motor_commands_sent": false,
+  "sdk": {
+    "pyorbbecsdk2": "2.0.18",
+    "numpy": "2.2.6",
+    "opencv-python-headless": "4.12.0.88"
+  },
+  "native_config_and_alignment_api": "passed",
+  "tests": {
+    "discovered": 103,
+    "passed_in_main_environment": 92,
+    "native_video_tests_in_training_environment": 4,
+    "camera_plugin_tests_in_training_environment": 7,
+    "unique_tests_passed": 103
+  },
+  "camera_devices_visible_in_wsl": 0,
+  "camera_probe_passed": false,
+  "synthetic_act": {
+    "steps": 100,
+    "batch_size": 2,
+    "training_loss_last": 5.3392181396484375,
+    "validation_loss": 1.113803744316101,
+    "gpu_peak_last_training_step_bytes": 1011996160,
+    "processors_reloaded": true,
+    "prediction_shape": [
+      1,
+      7
+    ]
+  },
+  "usb_can": {
+    "official_kit_interface": "PCAN-USB",
+    "hardware_brand_verified": false,
+    "unique_manufacturer_part_number_published": false,
+    "source": "https://wiki.seeedstudio.com/cn/rebot_b601_rs_getting_started/"
+  },
+  "local_log": "artifacts/camera-preparation-verification.log",
+  "local_full_report": "artifacts/prehardware-report.json",
+  "note": "Camera SDK imports and offline adapter/dataset tests passed. No real camera or CAN hardware was available. ACT uses synthetic demonstrations only."
+}

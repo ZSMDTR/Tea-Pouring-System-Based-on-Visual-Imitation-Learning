@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-15",
+  "checked_at_utc": "2026-10-15T13:28:16.187476+00:00",
+  "purpose": "final verification before synchronizing all prepared project changes to GitHub",
+  "passed": true,
+  "verification_command": "bash scripts/verify_all.sh --with-training",
+  "workspace_head_at_verification": "8425f122ce97fd20e774dc41c0aadded2f225d1e",
+  "working_tree_dirty_at_verification": true,
+  "included_topics": [
+    "Gemini 2 RGB-D acquisition and LeRobot camera plugin",
+    "commissioning-gated B601-RS joint adapter",
+    "feedback timestamp and timeout regression fixes",
+    "software audits, Notebook kernels and dependency locks",
+    "VS Code workspace organization",
+    "Word implementation guide and hardware procedures",
+    "grasp-only readiness audit and unimplemented-work checklist"
+  ],
+  "tests": {
+    "main_discovered": 108,
+    "main_executed_and_passed": 97,
+    "separate_video_tests_passed": 4,
+    "separate_camera_tests_passed": 7,
+    "unique_tests_passed": 108
+  },
+  "software_versions": {
+    "lerobot": "0.6.2",
+    "torch": "2.10.0",
+    "torchvision": "0.25.0",
+    "torchcodec": "0.10.0",
+    "av": "15.1.0",
+    "motorbridge": "0.5.6",
+    "datasets": "4.8.5"
+  },
+  "lerobot_commit": "ae2b57f12223c8c5184fcd814eb63cd9ce7de203",
+  "camera_software": {
+    "pyorbbecsdk2": "2.0.18",
+    "numpy": "2.2.6",
+    "opencv-python-headless": "4.12.0.88"
+  },
+  "vision_cpu": "passed",
+  "vision_cuda": "passed",
+  "kinematics": "PASS",
+  "dataset": {
+    "synthetic": true,
+    "frames": 600,
+    "episodes": 5,
+    "train_episodes": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "validation_episodes": [
+      4
+    ],
+    "units": "public_joint_degrees",
+    "video_backend": "pyav"
+  },
+  "act": {
+    "synthetic": true,
+    "steps": 100,
+    "batch_size": 2,
+    "training_loss_last": 5.336873769760132,
+    "validation_loss": 1.1031168699264526,
+    "gpu_peak_last_training_step_bytes": 1011996160,
+    "gpu": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "processors_reloaded": true,
+    "prediction_shape": [
+      1,
+      7
+    ],
+    "remote_upload": false
+  },
+  "physical_task_verified": false,
+  "physical_camera_streaming_verified": false,
+  "motor_commands_sent": false,
+  "hardware_template_control_enabled": false,
+  "grasp_work_remaining": [
+    "complete pick-lift-place state machine",
+    "TCP and IK integration",
+    "trajectory collision screening",
+    "teapot detection and grasp pose",
+    "physical calibration and actual trials"
+  ],
+  "excluded_from_git": [
+    "virtual environments",
+    "third-party source downloads",
+    "models and training checkpoints",
+    "datasets and raw videos",
+    "generated artifacts and caches",
+    "local executable installers/viewer"
+  ],
+  "local_full_report": "artifacts/prehardware-report.json",
+  "local_log": "artifacts/github-sync-verification.log"
+}

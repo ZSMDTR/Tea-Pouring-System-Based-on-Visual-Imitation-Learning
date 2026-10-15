@@ -18,11 +18,15 @@ bash scripts/verify_all.sh --with-training
 该命令失败时返回非零，缺少训练环境时在运行检查前直接报告缺失。
 VS Code 任务“实物前完整验收（含 ACT 合成训练）”执行相同流程。
 默认 `bash scripts/verify_all.sh` 保留不依赖 LeRobot 的原有验收，并加入关节模拟。
-核心测试中的四项视频集成测试会跳过；带训练的验收会在训练环境单独执行这四项，禁止跳过。
+核心测试中的四项视频集成测试和七项 LeRobot 相机接口测试会跳过；带训练的验收会在
+训练环境分别执行这些集成测试，禁止跳过，并检查实际相机 SDK 可以加载。
 
 主报告为 `artifacts/prehardware-report.json`，包含各环节结果、软件版本、
 数据划分、训练/验证损失、显存和重载结果。构建时的 Git HEAD 与未提交状态也会记录。
 所有报告与数据留在本机。
+
+Gemini 2 的 SDK/采集/LeRobot 插件说明见 `camera-gemini2.md`。完整验收中的相机插件使用
+替代 SDK 数据；没有接入相机时不把实际枚举失败计作离线软件失败，也不宣称实物验收通过。
 
 ## 重新建立训练环境
 
@@ -51,7 +55,9 @@ TorchCodec 0.10 先从官方 CPU wheel 源安装，PyTorch 2.10/TorchVision 0.25
 
 `JointState` 包含七轴公共关节位置（rad）、同一单调时钟上的采样时间和可选故障。
 `JointLimits` 包含逐轴限位、速度/加速度上限、反馈时效、到位容差/样本数及超时。
-`JointBackend` 定义 `read_state`、`send_target`、`request_stop`；本轮仅接受 `mode=mock`。
+`JointBackend` 定义 `read_state`、`send_target`、`request_stop`。模拟验收使用 `mode=mock`；
+后续新增的 LeRobot 适配器只有读取完整现场配置后才带有硬件执行授权，细节见
+`open-source-control-integration.md`。
 `LimitedJointController.start` 从当前有效反馈建立轨迹，`tick` 持续检查，`stop` 请求停止。
 终态不恢复；另一次运行必须创建新控制器。
 
@@ -62,7 +68,8 @@ TorchCodec 0.10 先从官方 CPU wheel 源安装，PyTorch 2.10/TorchVision 0.25
 
 `config/joints.synthetic.json` 只含合成限值。
 `config/hardware.template.json` 中实际设备、校准和控制参数留空，control_enabled=false；
-这份模板没有运动加载入口，填写它也不会开启真机控制。
+模板本身不能开启真机控制。必须复制到本地现场记录、补齐实测项和对应记录文件，并通过
+配置检查，真机命令还需显式选择 `joint-run`。
 现有笛卡尔 MockRobot 步骤保持独立，尚未自动转换为 IK/碰撞验证后的关节轨迹。
 
 ## 合成数据、训练和重载

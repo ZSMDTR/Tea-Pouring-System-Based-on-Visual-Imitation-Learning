@@ -1,4 +1,4 @@
-"""Public joint coordinates and bounded trajectories, with a mock backend only."""
+"""Public joint coordinates and bounded trajectories."""
 import math
 from dataclasses import dataclass
 from typing import Callable, Protocol
@@ -114,11 +114,20 @@ class JointDecision:
 
 
 class LimitedJointController:
-    """Faults latch. No SDK import; only explicitly mock backends are accepted."""
+    """Run a bounded trajectory and latch every terminal or fault state.
+
+    Hardware backends must set ``execution_authorized`` only after validating a
+    complete, physically commissioned configuration.  This keeps an arbitrary
+    object with ``mode='hardware'`` from bypassing the pre-commissioning gate.
+    """
 
     def __init__(self, backend: JointBackend, limits: JointLimits, clock: Callable[[], float]):
-        if getattr(backend, "mode", None) != "mock":
-            raise ValueError("Only mock joint execution is available before physical commissioning")
+        mode = getattr(backend, "mode", None)
+        hardware_authorized = mode == "hardware" and (
+            getattr(backend, "execution_authorized", False) is True
+        )
+        if mode != "mock" and not hardware_authorized:
+            raise ValueError("Hardware execution requires a verified, authorized backend")
         self.backend, self.limits, self.clock = backend, limits, clock
         self.state = "idle"
         self.trajectory = None
@@ -143,6 +152,17 @@ class LimitedJointController:
             raise ValueError("feedback_time_reversed")
         return self.limits.check_position(state.positions_rad)
 
+    def _read_feedback(self, before):
+        state = self.backend.read_state()
+        # Feedback can arrive while I/O is in progress. Check its age against
+        # the completion time, and include read latency in the motion timeout.
+        now = self.clock()
+        if not finite_number(now):
+            raise ValueError("invalid_clock")
+        if now < before:
+            raise ValueError("clock_not_increasing")
+        return state, now
+
     def start(self, target_rad):
         if self.state != "idle":
             raise ValueError("Create a new controller after completion or abort")
@@ -150,7 +170,7 @@ class LimitedJointController:
         if not finite_number(now):
             raise ValueError("invalid_clock")
         target = self.limits.check_position(target_rad)
-        state = self.backend.read_state()
+        state, now = self._read_feedback(now)
         position = self._check_feedback(state, now)
         trajectory = QuinticTrajectory.create(position, target, self.limits)
         if trajectory.duration_s >= self.limits.timeout_s:
@@ -187,7 +207,11 @@ class LimitedJointController:
         if elapsed >= self.limits.timeout_s:
             return self.stop("motion_timeout", elapsed)
         try:
-            feedback = self.backend.read_state()
+            feedback, now = self._read_feedback(now)
+            elapsed = now - self.started_s
+            self.last_tick_s = now
+            if elapsed >= self.limits.timeout_s:
+                return self.stop("motion_timeout", elapsed)
             position = self._check_feedback(feedback, now)
             fresh = feedback.timestamp_s != self.last_sample_s
             self.last_sample_s = feedback.timestamp_s

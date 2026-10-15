@@ -7,16 +7,21 @@
 ## 本机已经准备和实际未完成的部分
 
 - WSL Ubuntu22.04：MotorBridge0.5.6、ip、usbutils、can-utils，存在peak_usb和gs_usb内核模块。
-- Windows：独立 .venv-control-win，MotorBridge0.5.6原生ABI和网关程序可加载。
+- Windows：PEAK-Drivers 5.1.3.1189、PCAN-Basic x64/x86 5.1.0.1194 已安装，
+  x64 DLL 加载通过；usbipd-win 5.3.0 服务运行。当前以 WSL 为主路径。
+  历史 Windows `.venv-control-win` 未在旧位置找到，若选择原生备选需重新 setup。
 - 只读doctor、1–7电机探测/位置读取，以及官方Web控制网关启动脚本已提供。
-- 当前未识别到接入的USB-CAN；COM9/COM10是蓝牙串口。
-- Windows未检测到PCANBasic运行库，usbipd-win也未安装。
+- 当前 Windows/WSL 均未识别到本项目 USB-CAN 或 Gemini 2。
+- 用户已确认全部配件为原厂套件；按官方 PCAN-USB 路线准备，VID/PID 在插入后记录。
 - 用户尚未确认零位/参数，因此没有自动写零、改ID、使能或发送运动指令。
 
 这意味着程序入口已准备，但不能宣称当前电脑插线后必然可立即运动；
 仍须按实际适配器补驱动、确认接线，完成一次实机验收。
 
 ## 1. 先确认适配器，不猜COM号
+
+已查询官方 B601-RS 快速入门：套件按 **PCAN-USB 兼容接口、1 Mbps** 使用；具体板卡品牌
+和 VID/PID 尚需核对。官方 BOM 未公布唯一料号，详见 [USB-CAN 查询记录](usb-can-identification.md)。
 
 插入套件的USB-CAN后，Windows项目根目录运行：
 
@@ -27,7 +32,7 @@
 报告写入artifacts/control-windows.json。没有CAN或驱动时返回非零是预期结果。
 它只读USB和软件状态，不创建电机控制器。检测到候选不等于协议已验证。
 
-若是PEAK PCAN，可使用Windows原生控制，但须安装厂商PCAN驱动和PCAN-Basic；
+若实际设备使用PCAN-USB接口，可按对应驱动验证Windows原生控制，需PCAN驱动和PCAN-Basic；
 MotorBridge当前将Windows原生CAN支持标为实验功能。
 若是CANable等设备，先按其实际固件和Linux驱动验证SocketCAN，不能把COM串口强行作为RS接口。
 RS不是Damiao串口桥，不能用DM串口方案代替。
@@ -52,14 +57,13 @@ bash scripts/control_linux.sh doctor
 
 若USB设备目前由Windows持有，WSL不会自动获得它。按
 [Microsoft USB说明](https://learn.microsoft.com/en-us/windows/wsl/connect-usb)
-安装usbipd-win并完成绑定/附加；首次安装或绑定需要Windows管理员操作。
+使用已安装的usbipd-win完成绑定/附加；首次绑定需要Windows管理员操作。
 不要同时让Windows网关和WSL程序占用同一适配器。
 
 实物到位后，可按以下顺序操作；BUSID必须从usbipd list核对，不能照抄他人的编号：
 
 ```powershell
-# 管理员PowerShell：安装和首次共享
-winget install --interactive --exact --id dorssel.usbipd-win
+# 管理员PowerShell：本机已安装usbipd-win，先核对设备，再首次共享
 usbipd list
 $canBusId = Read-Host '输入已确认USB-CAN的BUSID'
 usbipd bind --busid $canBusId
@@ -70,7 +74,8 @@ usbipd attach --wsl --busid $canBusId
 
 若换了PowerShell窗口，需要重新设置$canBusId。不要在Windows原生网关运行时附加设备。
 切回Windows控制前，先停止Linux网关，再执行usbipd detach --busid $canBusId。
-进入WSL后用lsusb和ip -br link确认；PCAN需要peak_usb，CANable通常需要匹配固件及gs_usb。
+进入WSL后用lsusb和ip -br link确认；PCAN路径可用peak_usb，CANable类板卡按实际固件
+选择驱动，运行PCAN固件时不能直接假定使用gs_usb。
 
 仅在确认适配器已附加、驱动已加载并出现can0后执行：
 
@@ -102,7 +107,7 @@ Linux通道是can0，不带@1000000；can1等实际接口须相应替换。
 ```
 
 can0在Windows映射第一个PCAN USB通道，不是Linux网络接口；多适配器时需核对顺序。
-当前已验证的软件环境在本聊天的Windows工作区，换目录克隆后需重新运行setup。
+本次未重建 Windows 原生 Python 控制环境；选用此备选时先运行上述 setup 与 doctor。
 该环境只装控制依赖，不安装GPU视觉栈，不要求Windows启动WSL。
 
 ## 3. 探测结果怎么看
@@ -136,7 +141,9 @@ probe使用RobStride Ping及有超时的0x7019位置读取：
 
 当前项目没有把失能称为保持当前位置：失能会取消主动支撑，须根据实际台架支撑机械臂。
 不自动调用上游示例2/4/7/8作为初连测试；这些示例含写零、使能或初始零目标，退出也可能驱动回零。
-程序化连续轨迹、夹持和策略控制须在此验收后再实现/验证，而非直接把mock步骤下发到电机。
+程序化受限关节轨迹入口已经实现，但必须在上述验收后填入完整现场配置再验证；用法见
+[开源控制接入](open-source-control-integration.md)。笛卡尔夹持和策略控制仍不能直接把
+mock步骤下发到电机。
 
 ## 通过标准
 

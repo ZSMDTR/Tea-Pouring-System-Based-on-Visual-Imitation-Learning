@@ -1,0 +1,4 @@
+# Notebook support shared by Python 3.10 and 3.12; GPU stack remains constrained
+# by the corresponding environment lock file during installation.
+ipykernel==6.30.1
+nbformat==5.10.4

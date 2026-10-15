@@ -1,0 +1,11 @@
+{
+  "model": "Orbbec Gemini 2",
+  "serial_number": null,
+  "width": 640,
+  "height": 480,
+  "fps": 30,
+  "color_format": "RGB",
+  "timeout_ms": 1000,
+  "max_pair_skew_ms": 20.0,
+  "rectify": true
+}

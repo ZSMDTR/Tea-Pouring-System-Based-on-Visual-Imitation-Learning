@@ -1,0 +1,3 @@
+# SDK v2 package; its import name is pyorbbecsdk. Version 2.0.18 has no demo-only
+# dependency constraints that would replace the existing NumPy/PyAV environment.
+pyorbbecsdk2==2.0.18

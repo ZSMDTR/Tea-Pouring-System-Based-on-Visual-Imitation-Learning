@@ -2,6 +2,34 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "环境与插件检查（不连接机械臂）",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/audit_software.sh"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Gemini 2：检查 SDK（不连接机械臂）",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/camera.sh", "check"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Gemini 2：枚举相机和流模式",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/camera.sh", "list"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Gemini 2：采集 30 组 RGB-D（不连接机械臂）",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/camera.sh", "capture", "--frames", "30"],
+      "problemMatcher": []
+    },
+    {
       "label": "实物前完整验收（含 ACT 合成训练）",
       "type": "process",
       "command": "bash",

@@ -3,6 +3,9 @@
     "ms-python.python",
     "ms-python.vscode-pylance",
     "ms-python.debugpy",
+    "charliermarsh.ruff",
+    "ms-toolsai.jupyter",
+    "mechatroner.rainbow-csv",
     "ms-vscode-remote.remote-wsl",
     "ms-vscode-remote.remote-ssh"
   ]

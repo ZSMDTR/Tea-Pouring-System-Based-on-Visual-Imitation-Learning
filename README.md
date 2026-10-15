@@ -1,7 +1,21 @@
-# reBot Tea：B601-RS 视觉倒茶项目
+# reBot Tea：B601-RS 视觉抓取项目
 
-任务目标：识别并抓起茶壶，定位随机摆放的茶杯，根据液位反馈停止倒茶。
-用户已准备机械臂套件与相机；茶杯不透明，目标为容量的90%，相机接入暂缓。
+日常开发请打开仓库根目录的 `reBot-B601-RS.code-workspace`。`reBot-Codex-WSL` 是指向
+同一仓库的旧 VS Code/WSL 快捷入口，并不是另一个项目。目录关系和文件用途见
+[项目入口与文件导航](docs/project-navigation.md)。
+
+环境和插件复核入口：`bash scripts/audit_software.sh`。本机已补齐 Notebook 内核、
+Gemini 2 USB 权限和 Windows OrbbecViewer，结果与使用方法见
+[软件环境检查](docs/software-environment-check.md)。
+
+当前阶段目标是完成空茶壶抓放：抓稳、抬升、放回指定区域。
+无实物时仍可开发的内容与实际缺口见 [抓取准备检查](docs/grasp-readiness.md)。
+后续目标保留为定位随机摆放的茶杯及按反馈倒茶，本阶段暂停扩展。
+用户已准备机械臂套件与 Orbbec Gemini 2 RGB-D 相机；茶杯不透明，目标为容量的90%。
+相机实时采集与标定尚未验收，接入说明见 [Gemini 2 相机](docs/camera-gemini2.md)。
+相机 SDK、RGB-D 采集和 LeRobot 插件已完成软件接入；使用 `bash scripts/camera.sh check`。
+官方 USB-CAN 路线已查明为 PCAN-USB 兼容接口，实物身份核对见
+[查询记录](docs/usb-can-identification.md)。
 当前可运行功能与任务差距见 [任务设计](docs/tea-task.md)。
 
 已建立无硬件开发环境：图片检测、RGB-D 回放、坐标转换、模拟抓取与独立运动学验证。
@@ -9,7 +23,7 @@
 本次选定开发环境：Windows VS Code + WSL2 Ubuntu 22.04 + Python 3.10。
 项目优先放在 Linux 文件系统的 `~/projects/rebot-tea`。
 
-当前工作重点是PC连接和机械臂控制，暂缓杯子与液位功能。
+当前工作重点是抓放流程、运动学与受限执行衔接，暂缓杯子与液位功能。
 首次实物接入请先读 [电脑连接与控制](docs/robot-first-connection.md)，
 实物验收后按 [第一次训练](docs/training-start.md) 准备示教数据。
 
@@ -22,6 +36,10 @@
 [任务验收](docs/task-acceptance.md)。
 实物到位后的完整顺序与每步通过条件见 [实物工作流程](docs/after-hardware-workflow.md)。
 上一轮实测的软件结果见 [可随仓库同步的验收摘要](docs/reports/prehardware-2026-10-14.json)。
+本次同步前的完整验收通过108项不同测试及ACT合成100步/重载，见
+[2026-10-15完整验收摘要](docs/reports/github-sync-2026-10-15.json)。
+GitHub 开源控制项目的筛选、已接入的 LeRobot 真机适配层及现场门禁见
+[开源控制接入](docs/open-source-control-integration.md)。
 
 ## 开始使用
 
@@ -70,14 +88,15 @@ RGB 图 / 录制 RGB-D
 配置中的工作区边界只用于演示测试，**不代表 B601-RS 的真实安全工作区**。
 目标点也只是合成测试值，不是物体中心到夹爪 TCP 的真实换算。
 该阶段没有抓取姿态、IK、关节轨迹、碰撞检查、接触反馈或抓取成功判断。
-MockRobot 不控制夹爪；任何非 mock 后端都会报错，避免把模拟当成真实执行。
+MockRobot 不控制夹爪。关节层新增了 LeRobot B601-RS 适配器，但只有完整的现场配置通过
+门禁后才接受硬件后端；当前模板保持禁用，笛卡尔抓取流程仍只使用 mock。
 
 ## 接入真实抓取的顺序
 
 1. **硬件与基础通信**：确认 USB-CAN 型号/驱动、实际接口名、固件和电机 ID。
    按 Seeed B601-RS 文档完成机械装配、零位标定与低速单关节验证。
    不直接沿用 DM 型号参数；不能用“读取位置”函数名判断接口不会使能电机。
-2. **相机与标定**：确定 RGB-D 或 RGB + 已知桌面方案。
+2. **相机与标定**：使用已确认的 Orbbec Gemini 2 RGB-D 相机。
    实现相机采集，记录内参/畸变、深度单位、时间戳和外参。
    RGB-D 像素先反投影到相机坐标，再变换至 base；纯 RGB 必须增加已标定桌面
    或其他深度约束。二维检测框本身不能提供可靠的三维抓取位置。
@@ -91,7 +110,7 @@ MockRobot 不控制夹爪；任何非 mock 后端都会报错，避免把模拟�
 5. **真实抓取验收**：低速完成空夹爪、空杯抓取及抬升，记录重复成功率。
    抓取稳定后扩展随机杯定位与液位反馈倒茶；另需液体、负载和倾倒轨迹验证。
 
-实物硬件已齐，具体相机和 USB-CAN 型号待记录；视觉暂用 SSDLite 预训练杯子检测基线。
+相机型号已确认，USB-CAN 型号及实际接入状态仍待记录；视觉暂用 SSDLite 预训练杯子检测基线。
 该 COCO 模型没有 teapot/kettle 类别，不能直接识别茶壶，也没有液位估计能力。
 不将示例 CAN 参数和示例坐标写入真实驱动。
 WSL 设备接入必须在选定适配器后验证；若驱动/USB 透传不适配，可将本 Python
@@ -113,6 +132,7 @@ WSL 设备接入必须在选定适配器后验证；若驱动/USB 透传不适�
 - `docs/github-sync.md`：仓库位置、同步范围和后续提交方法。
 - `docs/robot-first-connection.md`：设备自检、探测、官方控制界面与初次校准。
 - `docs/training-start.md`：主臂示教、数据采集、ACT短训练与后续评估。
+- `docs/open-source-control-integration.md`：GitHub 项目比较、LeRobot 适配和真机命令门禁。
 
 ## 官方参考
 

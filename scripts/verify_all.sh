@@ -35,6 +35,8 @@ if test -x .venv-kinematics/bin/python; then
 fi
 if [[ "$with_training" == true ]]; then
     bash scripts/training.sh test
+    bash scripts/camera.sh check
+    bash scripts/camera.sh test
     bash scripts/training.sh verify
     .venv/bin/python scripts/report_prehardware.py
 fi

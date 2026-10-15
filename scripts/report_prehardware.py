@@ -12,11 +12,15 @@ def main():
         "unit_tests": "unit-tests.json", "training_tests": "training-tests.json",
         "joints": "joints-check.json", "training": "training-verify.json",
         "vision_cpu": "vision-cpu.json", "vision_cuda": "vision-cuda.json",
+        "camera_sdk": "camera-check.json", "camera_plugin_tests": "camera-plugin-tests.json",
     }.items()}
     if (directory / "kinematics-check.json").exists():
         reports["kinematics"] = json.loads((directory / "kinematics-check.json").read_text())
-    passed = all(reports[key]["passed"] for key in ("unit_tests", "training_tests", "joints", "training"))
+    passed = all(reports[key]["passed"] for key in (
+        "unit_tests", "training_tests", "joints", "training", "camera_sdk", "camera_plugin_tests"
+    ))
     passed = passed and reports["training_tests"]["skipped"] == 0 \
+        and reports["camera_plugin_tests"]["skipped"] == 0 \
         and reports["vision_cpu"]["inference"] == "passed" \
         and reports["vision_cuda"]["inference"] == "passed" \
         and reports["vision_cuda"]["training_step"] == "passed on synthetic input only"

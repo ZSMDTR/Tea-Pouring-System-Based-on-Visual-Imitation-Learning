@@ -11,6 +11,9 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
+.vscode/browse.vc*.db*
+.vscode-cache/
+Log/
 data/
 outputs/
 models/

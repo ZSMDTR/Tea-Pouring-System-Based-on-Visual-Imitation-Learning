@@ -2,7 +2,8 @@
 
 控制机械臂和训练模型是两个阶段。先通过robot-first-connection.md中的通信、校零、
 参数和小幅运动验收；此时不需要相机或训练。不要先启动训练代码来判断接线是否正确。
-完整阶段顺序、仍需开发的真机执行与现场通过条件见 [实物工作流程](after-hardware-workflow.md)。
+完整阶段顺序、受限真机关节入口、仍需开发的策略执行与现场通过条件见
+[实物工作流程](after-hardware-workflow.md)。
 
 本项目已提供离线视觉/几何、受限关节模拟和原生 LeRobot 合成数据训练链路，
 没有完成真实示教采集接入，也没有已经训练好的抓壶策略。
@@ -47,6 +48,9 @@ bash scripts/bootstrap_training.sh
 不要混用旧Seeed外部插件名称seeed_b601_rs_follower/rebot_arm_102_leader。
 初始化脚本安装rebot、training、core_scripts依赖并锁定版本；单装rebot不包含完整训练/数据功能。
 本轮已通过合成数据100步GPU训练及检查点重载，真实示教训练尚未进行。
+VS Code Notebook 可选择已验证的 `reBot ACT - Python 3.12 CUDA` 内核；命令行训练仍由
+上述脚本或固定 CLI 启动。环境与插件检查用 `bash scripts/audit_software.sh`，详见
+[软件环境复核](software-environment-check.md)。
 配套[固定版本设备说明](https://github.com/huggingface/lerobot/blob/ae2b57f12223c8c5184fcd814eb63cd9ce7de203/docs/source/rebot_b601.mdx)。
 
 ## 4. 校准与遥操
@@ -66,9 +70,15 @@ export LD_LIBRARY_PATH="$PWD/.venv-training/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_P
 
 ## 5. 接入相机并记录演示
 
+相机已确认是 **Orbbec Gemini 2**，先按 [相机接入说明](camera-gemini2.md) 完成预览和
+采集检查。项目已安装 SDK 并提供 `orbbec_gemini2` 相机插件：使用
+`bash scripts/camera.sh lerobot record` 加载后转交固定的官方 LeRobot 录制入口，
+相机参数片段和设备验证方法见相机文档。无需修改上游源码。
+首版 ACT 继续使用 RGB 字段 `observation.images.scene`，不自动把深度加入当前策略输入。
+
 控制阶段可不使用相机；训练视觉策略时必须恢复相机和同步视频。
-运行`.venv-training/bin/lerobot-find-cameras opencv`确定摄像头，保持安装位置与字段名称一致。
-使用官方记录命令`.venv-training/bin/lerobot-record`，配置RS从臂、实际主臂、实际camera以及：
+运行 `bash scripts/camera.sh list` 确认 Gemini 2 序列号和支持模式，再运行 capture 检查。
+保持安装位置与字段名称一致；通过上述项目包装入口录制，配置RS从臂、实际主臂及：
 
 - dataset.repo_id=local/empty-teapot-test。
 - dataset.root指向一个新数据集目录，dataset.single_task描述空壶抓放。

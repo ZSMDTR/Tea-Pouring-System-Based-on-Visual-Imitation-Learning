@@ -15,7 +15,9 @@ def main():
     parser.add_argument("--require-no-skips", action="store_true")
     args = parser.parse_args()
     started = time.monotonic()
-    suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern=args.pattern)
+    suite = unittest.defaultTestLoader.discover(
+        str(ROOT / "tests"), pattern=args.pattern, top_level_dir=str(ROOT)
+    )
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     report = {"passed": result.wasSuccessful() and result.testsRun > 0
               and (not args.require_no_skips or not result.skipped),

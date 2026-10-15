@@ -1,6 +1,10 @@
 # 环境检查报告
 
-检查日期：2026-10-14。
+最新复核：2026-10-15，见 [环境、软件与插件复核](software-environment-check.md)。
+Windows 已检出 usbipd-win、PEAK 驱动和 PCAN-Basic，OrbbecViewer 与两个 Notebook 内核
+已补齐。以下各节保留历史检查时的状态；“未安装”等旧记录不代表当前状态。
+
+以下初始检查日期：2026-10-14。
 
 ## 已确认
 

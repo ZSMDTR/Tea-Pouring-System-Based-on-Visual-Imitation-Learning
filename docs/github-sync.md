@@ -23,7 +23,7 @@ git commit -m "说明具体修改"
 git push
 ```
 
-## 当前推送问题与处理（2026-10-14）
+## 历史推送问题与处理（2026-10-14）
 
 当前WSL会话没有credential.helper、GitHub CLI或可用GitHub登录凭据。
 普通HTTPS推送在认证阶段失败：`could not read Username ... terminal prompts disabled`。
@@ -56,3 +56,18 @@ $rebotRepo = "\\wsl.localhost\Ubuntu-22.04\home\zsmdtr\projects\rebot-tea"
 生成结果和真实视频不会因为执行git push而上传。
 本轮另提供 `docs/reports/prehardware-2026-10-14.json` 精简验收摘要，纳入Git；
 完整本地日志、数据与检查点保持排除。
+
+## 2026-10-15 同步内容
+
+用户要求将目前全部工程成果同步到现有仓库。本轮包含此前尚未提交的 Gemini 2 SDK
+适配和 LeRobot 相机插件、受限真机关节接口、反馈时间/超时修复、环境与 Notebook
+检查脚本、VS Code 工作区整理、Word 实施文档、依赖锁定和现场准备说明。
+
+当前阶段先做空茶壶抓稳、抬升、放回，尚未实现的完整抓放状态机、IK/碰撞衔接、茶壶
+识别及标定工具，均在 [抓取准备检查](grasp-readiness.md) 明确列为待开发。
+源码同步不表示实物抓取已完成。
+
+本次提交前的完整验收记录保存为 `docs/reports/github-sync-2026-10-15.json`；
+旧轮次的相机、环境和抓取检查摘要保留各自检查时刻与验证范围。
+环境目录、第三方下载、训练数据/检查点、原始日志、相机查看器可执行文件和缓存
+仍不纳入 Git；安装/重建入口、锁定版本和结果摘要随仓库保存。

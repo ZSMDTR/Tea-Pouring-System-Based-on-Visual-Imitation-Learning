@@ -7,5 +7,40 @@
     "tests"
   ],
   "terminal.integrated.defaultProfile.linux": "bash",
-  "files.insertFinalNewline": true
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    ".ruff_cache": true,
+    ".venv": true,
+    ".venv-kinematics": true,
+    ".venv-training": true,
+    "src/*.egg-info": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.venv/**": true,
+    "**/.venv-kinematics/**": true,
+    "**/.venv-training/**": true,
+    "**/data/**": true,
+    "**/outputs/**": true,
+    "**/vendor/**": true
+  },
+  "search.exclude": {
+    "**/.venv/**": true,
+    "**/.venv-kinematics/**": true,
+    "**/.venv-training/**": true,
+    "**/data/**": true,
+    "**/outputs/**": true,
+    "**/vendor/**": true
+  },
+  "C_Cpp.intelliSenseCachePath": "${workspaceFolder}/.vscode-cache",
+  "ROS2.distro": "humble",
+  "python.autoComplete.extraPaths": [
+    "/opt/ros/humble/lib/python3.10/site-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages"
+  ],
+  "python.analysis.extraPaths": [
+    "/opt/ros/humble/lib/python3.10/site-packages",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages"
+  ]
 }

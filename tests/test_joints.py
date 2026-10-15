@@ -126,6 +126,74 @@ class JointTests(unittest.TestCase):
         self.now = .3
         self.assertIn("stale", controller.tick().reason)
 
+    def delayed_backend(self, delay_s, timestamp_on_completion=False):
+        backend = SimulatedJointBackend(self.clock)
+        read_state = backend.read_state
+
+        def read_with_delay():
+            state = read_state()
+            self.now += delay_s
+            return replace(state, timestamp_s=self.now) if timestamp_on_completion else state
+
+        backend.read_state = read_with_delay
+        return backend
+
+    def test_feedback_received_during_read_is_not_from_the_future(self):
+        backend = self.delayed_backend(.03, timestamp_on_completion=True)
+        controller = LimitedJointController(backend, self.limits, self.clock)
+        self.assertEqual(controller.start((.2,) * 7).state, "running")
+        self.assertAlmostEqual(controller.started_s, .03)
+        self.now += .02
+        decision = controller.tick()
+        self.assertEqual(decision.state, "running")
+        self.assertAlmostEqual(decision.elapsed_s, .05)
+        self.assertEqual(len(backend.history), 1)
+
+    def test_feedback_that_ages_during_read_is_rejected_at_start(self):
+        backend = self.delayed_backend(.3)
+        controller = LimitedJointController(backend, self.limits, self.clock)
+        with self.assertRaisesRegex(ValueError, "stale_feedback"):
+            controller.start((.2,) * 7)
+        self.assertEqual(backend.history, [])
+
+    def test_read_crossing_motion_timeout_never_dispatches_another_target(self):
+        backend = self.delayed_backend(0)
+        controller = LimitedJointController(backend, self.limits, self.clock)
+        controller.start((.2,) * 7)
+        original_read = backend.read_state
+
+        def slow_read():
+            feedback = original_read()
+            self.now += .1
+            return feedback
+
+        backend.read_state = slow_read
+        self.now = self.limits.timeout_s - .05
+        decision = controller.tick()
+        self.assertEqual(decision.state, "aborted")
+        self.assertEqual(decision.reason, "motion_timeout")
+        self.assertGreaterEqual(decision.elapsed_s, self.limits.timeout_s)
+        self.assertEqual(backend.history, [])
+        self.assertEqual(backend.stop_calls, 1)
+
+    def test_clock_reversal_during_read_never_dispatches_a_target(self):
+        backend = self.delayed_backend(0)
+        controller = LimitedJointController(backend, self.limits, self.clock)
+        controller.start((.2,) * 7)
+        original_read = backend.read_state
+
+        def reversed_read():
+            feedback = original_read()
+            self.now -= .01
+            return feedback
+
+        backend.read_state = reversed_read
+        self.now = .02
+        decision = controller.tick()
+        self.assertEqual(decision.state, "aborted")
+        self.assertIn("clock_not_increasing", decision.reason)
+        self.assertEqual(backend.history, [])
+
     def test_stop_request_does_not_imply_confirmation(self):
         backend = SimulatedJointBackend(self.clock)
         controller = LimitedJointController(backend, self.limits, self.clock)

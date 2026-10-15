@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-15",
+  "checked_at_utc": "2026-10-15T13:11:56.909877+00:00",
+  "scope": "empty-teapot-pick-lift-place-readiness-audit",
+  "software_regression_passed": true,
+  "workspace_head": "8425f122ce97fd20e774dc41c0aadded2f225d1e",
+  "working_tree_dirty": true,
+  "tests": {
+    "discovered": 108,
+    "passed_in_main": 97,
+    "video_tests_in_training": 4,
+    "camera_tests_in_training": 7,
+    "unique_passed": 108
+  },
+  "new_timing_regression_tests": {
+    "count": 5,
+    "failed_before_fix": 5,
+    "passed_after_fix": 5
+  },
+  "verification": {
+    "ruff": "passed",
+    "git_diff_check": "passed",
+    "cpu_and_gpu_vision": "passed",
+    "joint_fault_simulation": "passed",
+    "kinematics": "passed",
+    "act_100_steps_rerun_this_audit": false
+  },
+  "actual_current_grasp_software": {
+    "replay_target_label": "cup",
+    "replay_step_names": [
+      "open_gripper",
+      "approach",
+      "descend",
+      "close_gripper",
+      "lift"
+    ],
+    "place_and_release_implemented": false,
+    "teapot_detector_available": false,
+    "grasp_pose_estimation_implemented": false,
+    "ik_connected_to_grasp_planner": false,
+    "self_collision_checked": false,
+    "vision_to_physical_grasp_implemented": false
+  },
+  "offline_work_remaining": [
+    "complete pick-lift-place state machine and grasp evidence interface",
+    "TCP and public-joint-to-URDF mapping with reusable IK",
+    "path and collision screening",
+    "teapot annotations and detector training/evaluation interface",
+    "camera and robot calibration tooling",
+    "integrated no-hardware grasp rehearsal"
+  ],
+  "hardware_control_enabled": false,
+  "physical_grasp_verified": false,
+  "hardware_connected": false,
+  "motor_commands_sent": false,
+  "local_logs": [
+    "artifacts/grasp-readiness-offline.log",
+    "artifacts/grasp-readiness-data-tests.log",
+    "artifacts/grasp-readiness-camera-tests.log",
+    "artifacts/grasp-timing-before-fix.log",
+    "artifacts/grasp-timing-after-fix.log"
+  ],
+  "note": "Audit and feedback timing fixes only. The six offline development items remain unimplemented; no physical task success is claimed."
+}

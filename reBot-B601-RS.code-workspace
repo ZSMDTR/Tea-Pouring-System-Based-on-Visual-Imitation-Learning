@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "name": "reBot Tea · B601-RS",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"
+  }
+}

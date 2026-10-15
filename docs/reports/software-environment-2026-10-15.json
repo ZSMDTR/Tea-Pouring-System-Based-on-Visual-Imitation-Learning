@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-15",
+  "checked_at_utc": "2026-10-15T09:24:22.751012+00:00",
+  "verification_kind": "software-environments-extensions-and-offline-regression",
+  "software_checks_passed": true,
+  "software_check_count": 27,
+  "original_manufacturer_accessories_confirmed_by_user": true,
+  "environments": {
+    "main": {
+      "python": "3.10.12",
+      "lock_mismatches": {}
+    },
+    "training": {
+      "python": "3.12.15",
+      "lock_mismatches": {}
+    },
+    "kinematics": {
+      "python": "3.10.12",
+      "lock_mismatches": {}
+    }
+  },
+  "wsl_extensions": {
+    "ms-python.python": "2026.10.0",
+    "ms-python.vscode-pylance": "2026.4.100",
+    "ms-python.debugpy": "2026.7.12871009",
+    "charliermarsh.ruff": "2026.86.0",
+    "ms-toolsai.jupyter": "2025.9.1"
+  },
+  "windows": {
+    "usbipd_version": "5.3.0",
+    "usbipd_service": "Running",
+    "peak_drivers_version": "5.1.3.1189",
+    "pcan_basic_version": "5.1.0.1194",
+    "pcan_basic_architectures": [
+      "x64",
+      "x86"
+    ],
+    "pcan_x64_library_load_verified": true,
+    "remote_wsl": "0.104.3",
+    "orbbec_viewer": {
+      "version": "2.7.6",
+      "executable": "D:\\reBot-tools\\OrbbecViewer-v2.7.6\\OrbbecViewer.exe",
+      "exe_sha256": "2754bd8e4b8c96fad3727910e0d6ecbd090b74695b70c761d20d3072114d7dda",
+      "archive_sha256": "7e337bc4a2decc5d39b5f554b75293e56dd95c2148227b3c960d53fd023fb9ff",
+      "source": "https://github.com/orbbec/OrbbecSDK_v2/releases/tag/v2.7.6",
+      "prepared": true,
+      "physical_preview_verified": false
+    }
+  },
+  "notebook_kernels": [
+    "rebot-tea",
+    "rebot-training"
+  ],
+  "notebook_actual_kernel_execution_and_cuda": "passed",
+  "orbbec_sdk": "pyorbbecsdk2==2.0.18",
+  "orbbec_udev_rule_verified": true,
+  "kernel_modules_present": [
+    "can",
+    "can_raw",
+    "peak_usb",
+    "gs_usb",
+    "vhci_hcd",
+    "uvcvideo"
+  ],
+  "bash_powershell_json_and_ruff_checks": "passed",
+  "full_verification_passed": true,
+  "tests": {
+    "passed_in_main": 92,
+    "video_in_training": 4,
+    "camera_plugin_in_training": 7,
+    "unique_passed": 103
+  },
+  "synthetic_act": {
+    "steps": 100,
+    "batch_size": 2,
+    "train_episodes": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "validation_episodes": [
+      4
+    ],
+    "training_loss_last": 5.335049152374268,
+    "validation_loss": 1.0970661640167236,
+    "gpu_peak_last_training_step_bytes": 1011996160,
+    "processors_reloaded": true,
+    "prediction_shape": [
+      1,
+      7
+    ],
+    "remote_upload": false
+  },
+  "hardware_verified": false,
+  "physical_camera_streaming_verified": false,
+  "motor_commands_sent": false,
+  "optional_tool_binaries": {
+    "git-lfs": null,
+    "dvc": null,
+    "tensorboard": null,
+    "docker": null,
+    "tmux": "/usr/bin/tmux",
+    "label-studio": null,
+    "ros2": "/opt/ros/humble/bin/ros2"
+  },
+  "local_full_report": "artifacts/software-audit.json",
+  "local_regression_report": "artifacts/prehardware-report.json",
+  "local_regression_log": "artifacts/software-audit-verification.log"
+}

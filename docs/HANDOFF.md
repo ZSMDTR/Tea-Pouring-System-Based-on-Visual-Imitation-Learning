@@ -1,6 +1,7 @@
 # 项目交接：Seeed reBot Arm B601-RS 茶壶抓取与倒茶
 
-更新时间：2026-10-14  
+更新时间：2026-10-15
+
 WSL 项目路径：`/home/zsmdtr/projects/rebot-tea`  
 GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Imitation-Learning`
 
@@ -11,8 +12,8 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 最终任务：视觉识别茶壶并抓取，向随机摆放的不透明茶杯倒水；达到杯容量的 90% 时停止。用户已说明机械臂整套和相机已具备。目前阶段聚焦电脑连接及机械臂控制，杯子和相机暂缓。
 
 - 机械臂：Seeed Studio reBot Arm B601-RS。
-- 相机：已有，具体品牌/型号及安装方式未知。
-- USB-CAN：型号未知，尚未接入电脑。
+- 相机：Orbbec Gemini 2（2026-10-15 用户确认）；固件、安装方式及标定待验证。
+- USB-CAN：官方套件使用 PCAN-USB 兼容接口；实际板卡品牌/VID/PID 尚未核对或接入。
 - 示教主臂/Leader：是否有及型号未知。
 - 零位校准、参数写入和电机在线状态：未确认。
 
@@ -70,7 +71,8 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 3. 项目已具备限位、速度/加速度、到位反馈与超时的模拟控制层和接口，
    尚未接入或验证真实运动后端；示例参数不是实测安全参数。
 4. IK 数学演示不验证真实可达性、碰撞、TCP 或负载；当前没有 SRDF 自碰撞配置。
-5. 相机型号/标定、示教主臂与实际茶壶数据尚缺；LeRobot 环境和合成软件链路已准备。
+5. 相机已确认 Orbbec Gemini 2；相机采集/标定、示教主臂与实际茶壶数据尚缺；
+   LeRobot 环境和合成软件链路已准备。
 6. 茶壶专用抓取策略未训练；不透明杯的实际反馈传感、余流测量和停流策略待现场验证。
 7. Git 状态和远端应由新对话重新检查；交接文件是否已提交不能假定。
 
@@ -183,3 +185,120 @@ bash scripts/control_linux.sh probe can0
 已验证该Windows Git/GCM缓存认证可读取远端main（查询时为21d55aa）；
 本轮使用这条路线完成普通推送，保留既有历史和远端可见性。
 推送的最终结果由实际Git输出及交付记录确认；操作方法见 `docs/github-sync.md`。
+
+## 12. GitHub 开源控制项目接入（2026-10-15）
+
+- 检索并比较了 Hugging Face LeRobot、Seeed B601 LeRobot 插件、MotorBridge、reBot-DevArm、
+  Seeed ROS 2 控制器和 Web UI；版本、许可证与取舍记录在
+  `docs/open-source-control-integration.md`。
+- 选用项目已固定的 LeRobot 提交 `ae2b57f12223c8c5184fcd814eb63cd9ce7de203` 的
+  `RebotB601Follower`。独立 Seeed 插件的 README 仍将 RS 标为完善中；ROS 2 仓库当前没有
+  许可证文件，因此未复制其源码。
+- 新增 `src/rebot_tea/hardware.py`：将官方驱动的公共度数转换为项目七轴弧度坐标，并接入
+  现有五次轨迹、限位、速度/加速度、反馈时效、到位与超时检查。
+- `scripts/control_linux.sh joint-plan` 只检查实测配置和目标；`joint-run` 才会在固定的
+  `.venv-training` 中连接官方驱动。配置不完整、方向与固定驱动不符、记录文件缺失或停止
+  行为未实测都会在创建 CAN 控制器前失败。
+- 当前 `config/hardware.template.json` 仍为 `control_enabled=false`、实测项为空；USB-CAN
+  尚未接入，所以没有执行真机连接、使能、校准或运动。笛卡尔抓取和策略回放仍未接真机。
+
+## 13. 相机型号确认（2026-10-15）
+
+以下为型号刚确认时的快照；SDK、采集和插件的后续实现状态见第14节。
+
+- 用户确认相机为 **Orbbec Gemini 2**；已同步到 README、硬件模板、现场记录和训练文档。
+- 官方 Orbbec SDK v2 支持 Gemini 2；本次查询支持表列最低固件 1.4.92、推荐 1.4.98。
+  实际设备固件尚未读取，未执行固件升级。官方来源见 `docs/camera-gemini2.md`。
+- 本次检查 `.venv` 和 `.venv-training` 均未安装 `pyorbbecsdk`；当前 WSL `lsusb` 没有
+  枚举到 USB 设备，不能据此判断 Windows 是否已连接相机。
+- 固定 LeRobot 源码没有原生 Orbbec 相机后端；RGB 的 OpenCV 路径仍需现场验证，完整
+  RGB-D 需 SDK 采集适配。当前只是确认型号和接入方案，尚未实现或验收实时采集。
+- ACT 首版仍用 `observation.images.scene` RGB，深度用于几何定位/标定另行保存。
+  不更改已验证的合成数据字段和训练依赖锁定文件。
+
+## 14. Gemini 2 软件适配与 USB-CAN 查询（2026-10-15）
+
+- `.venv` / `.venv-training` 已安装官方 `pyorbbecsdk2==2.0.18`，导入名 `pyorbbecsdk`。
+  2.1.x 额外约束的 PyAV/NumPy 与本工程锁定依赖冲突，选用无此依赖冲突的 2.0.18，
+  两份环境锁定文件已记录实际版本。重新安装入口为 `scripts/bootstrap_camera.sh`。
+- `src/rebot_tea/orbbec.py` 实现 SDK 设备/模式枚举、精确流模式选择、同步帧/D2C、
+  去畸变、设备时间戳顺序与RGB/深度偏差检查、实际深度比例与内参导出。
+- `src/rebot_tea/lerobot_orbbec.py` 提供 `orbbec_gemini2` 配置与有时效检查的后台采集，
+  RGB/深度保持同一帧组，通信异常锁定错误。通过 `scripts/camera.sh lerobot` 先注册插件
+  再调用官方record/teleoperate，未修改固定上游源码。
+- `scripts/camera.sh check|list|capture|test`、VS Code 相机任务和专用依赖文件已补齐。
+  `verify_all.sh --with-training` 加入相机 SDK 和插件测试；聚合报告包含这些结果。
+- 官网快速入门明确套件按PCAN-USB、1Mbps使用，BOM采购链接为预装PCAN固件转换板，
+  未公布唯一商品料号。证据和现场核对步骤见 `docs/usb-can-identification.md`。
+  硬件模板只填写官方参考信息，实际 `usb_can_model/usb_vid_pid` 继续为空。
+- 当前SDK实际枚举为零台相机，未验证真实采流/外参。所有导出标定的 `T_base_camera`
+  初始为null，不能直接进行基座三维定位。未校准、刷固件、配置总线或移动实物机械臂。
+- 完整验收 `bash scripts/verify_all.sh --with-training` 已返回0：主环境92项通过，
+  11项专用集成测试在训练环境分别通过（4项视频、7项相机插件），共103项；
+  CPU/GPU视觉、独立运动学、ACT合成100步和检查点/预处理器重载通过。
+  可纳入Git的摘要：`docs/reports/camera-preparation-2026-10-15.json`；
+  原始日志：`artifacts/camera-preparation-verification.log`。
+
+## 15. 原厂配件确认与软件/插件复核（2026-10-15）
+
+- 用户确认全部配件为原厂套件，已写入 `config/hardware.template.json` 的
+  `accessories_provenance`；按官方 PCAN-USB 路线准备，实际 VID/PID、固件、限位和校准
+  保持待测，`control_enabled/hardware_verified` 继续为 false。
+- 新入口 `bash scripts/audit_software.sh` 与同名 VS Code 任务：检查三个环境的 pip/锁定
+  版本、固定上游提交、CUDA、MotorBridge ABI、相机 SDK、Notebook 内核、驱动模块、
+  udev 和两端编辑器扩展；Windows 由只读 `scripts/audit_windows.ps1` 查询。
+  当前27项软件检查全部通过；硬件缺席独立记录，不冒充通信验收通过。
+- 发现 Jupyter 扩展虽已安装，但工程环境缺内核。新增
+  `scripts/bootstrap_notebooks.sh`，两环境安装固定 ipykernel 6.30.1/nbformat 5.10.4，
+  实际传递依赖补入两份锁定文件。已注册 `rebot-tea/rebot-training` 两内核并实际执行
+  CUDA 矩阵运算、OpenCV/NumPy/SDK 导入；训练内核设置本地 FFmpeg 库路径。
+- 已用 `scripts/configure_camera_permissions.sh` 安装 SDK 自带官方 udev 规则并重载，
+  不触发设备、刷固件或修改电机参数。工程安装/控制入口清除继承的系统 ROS Python 路径，
+  系统 ROS 和原有编辑器配置保留。
+- Windows 实测已安装 usbipd-win 5.3.0（服务运行）、PEAK-Drivers 5.1.3.1189，
+  PCANBasic.dll x64/x86 5.1.0.1194，x64 DLL 实际加载通过。历史文档“未安装”已标为旧状态。
+  旧位置未找到 Windows `.venv-control-win`，当前 WSL 路线不依赖它；原生备选需重新 setup。
+- 缺失的官方 OrbbecViewer 2.7.6 已下载并解压到
+  `D:\reBot-tools\OrbbecViewer-v2.7.6\OrbbecViewer.exe`，记录压缩包/EXE SHA-256；
+  换机可用 `scripts/prepare_orbbec_viewer.ps1`。未打开相机或刷写固件。
+- 依赖变更后完整重跑 `bash scripts/verify_all.sh --with-training` 返回0：
+  主环境92项，训练环境补跑4项视频和7项相机插件，共103项全部通过；视觉、运动学、
+  ACT 合成100步batch2与重载通过。最新损失/显存见摘要，不覆盖上一轮历史结果。
+- 最新说明 `docs/software-environment-check.md`；可纳入 Git 的摘要
+  `docs/reports/software-environment-2026-10-15.json`；本地完整报告
+  `artifacts/software-audit.json`、`artifacts/prehardware-report.json`；日志
+  `artifacts/software-audit.log`、`artifacts/software-audit-verification.log`。
+- 当前 Windows/WSL 均无 Gemini 2/USB-CAN 枚举记录。下一步依次做 Windows 相机预览、
+  实际 USB 身份与独占附加、WSL 采流与 CAN 只读反馈，再按文档现场校准。
+  本轮未配置实际总线、查询电机、校零、写参数或运动；未提交/推送既有未提交改动。
+
+## 16. 优先空茶壶抓放与无实物缺口检查（2026-10-15）
+
+- 用户要求先完成抓取，检查暂无实物时还能做的工作。README 当前目标改为空茶壶抓稳、
+  抬升、放回；倒茶/液位代码和记录保留，本阶段不扩展。
+- 按实际代码确认：规划只有五步且止于抬升；RGB-D回放仍筛选cup；没有茶壶识别/抓取姿态；
+  IK只在检查脚本里做局部回环；未实现碰撞检查和视觉到真实抓放的全链路。
+- 已用延迟替代后端复现并修复反馈时间检查问题：控制器改用读取完成后的时间检查反馈和
+  总超时；读取期间时钟倒退会终止；LeRobot反馈保守使用整组读取开始时刻，防止读取耗时
+  被隐藏。设备侧帧年龄与实际控制频率仍需现场测量。
+- 新增5项回归测试，修复前全部失败、修复后通过。完整离线验收以及4项视频/7项相机插件
+  集成测试通过：108个不同测试通过（主环境97项，另环境11项）；未重跑ACT100步。
+- `docs/grasp-readiness.md` 逐项记录可以继续离线开发的内容：完整抓放状态机、TCP/IK映射、
+  路径与碰撞、茶壶标注/训练接口、标定工具、统一无运动演练。这些为待开发项，尚未完成。
+  实物参数、抓持反馈和20次至少18成功验收继续留待现场。
+- 可随Git保存的摘要：`docs/reports/grasp-readiness-2026-10-15.json`；本地日志
+  `artifacts/grasp-readiness-offline.log`、`grasp-readiness-data-tests.log`、
+  `grasp-readiness-camera-tests.log`、`grasp-timing-before-fix.log` / `grasp-timing-after-fix.log`。
+  本轮未连接或移动机械臂，未提交/推送工作区的既有改动。
+
+## 17. 全部工程成果同步准备（2026-10-15）
+
+- 用户明确要求全部同步 GitHub，范围包含此前各轮未提交的代码、测试、配置、依赖锁定、
+  工作区、Word和Markdown文档及精简检查报告；已授权将原有暂存改动一起纳入。
+- 已通过现有 Windows Git/GCM 认证读取私有远端，远端main为
+  `8425f122ce97fd20e774dc41c0aadded2f225d1e`，与本地基线一致，无需强推或重写历史。
+- 本次提交前完整验收与精简摘要见 `docs/reports/github-sync-2026-10-15.json`，
+  本地日志为 `artifacts/github-sync-verification.log`。
+- 原始环境、模型、数据、检查点、查看器及缓存继续排除；相机/控制/Notebook安装入口和
+  软件锁定版本可用于重建。当前所有实物验收状态仍为未验证，抓取待开发清单继续保留。
+- 实际提交哈希、普通推送及远端核验结果在成功后追加，不能以本节准备记录代替推送成功。

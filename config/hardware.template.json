@@ -2,7 +2,17 @@
   "robot": "B601-RS",
   "control_enabled": false,
   "hardware_verified": false,
+  "accessories_provenance": {
+    "original_manufacturer_kit": true,
+    "confirmed_by": "user",
+    "confirmed_on": "2026-10-15"
+  },
   "usb_can_model": null,
+  "usb_can_reference": {
+    "official_kit_interface": "PCAN-USB",
+    "actual_hardware_identity_verified": false,
+    "source_url": "https://wiki.seeedstudio.com/cn/rebot_b601_rs_getting_started/"
+  },
   "usb_vid_pid": null,
   "owner_os": null,
   "channel": null,
@@ -18,9 +28,12 @@
   "max_velocity_rad_s": null,
   "max_acceleration_rad_s2": null,
   "feedback_age_limit_s": null,
+  "arrival_tolerance_rad": null,
+  "arrival_samples": null,
+  "motion_timeout_s": null,
   "tcp_transform": null,
   "gripper_mapping": null,
   "stop_behavior": null,
-  "camera_model": null,
+  "camera_model": "Orbbec Gemini 2",
   "leader_model": null
 }
