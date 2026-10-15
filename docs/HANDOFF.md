@@ -291,7 +291,7 @@ bash scripts/control_linux.sh probe can0
   `grasp-readiness-camera-tests.log`、`grasp-timing-before-fix.log` / `grasp-timing-after-fix.log`。
   本轮未连接或移动机械臂，未提交/推送工作区的既有改动。
 
-## 17. 全部工程成果同步准备（2026-10-15）
+## 17. 全部工程成果同步（2026-10-15）
 
 - 用户明确要求全部同步 GitHub，范围包含此前各轮未提交的代码、测试、配置、依赖锁定、
   工作区、Word和Markdown文档及精简检查报告；已授权将原有暂存改动一起纳入。
@@ -301,4 +301,12 @@ bash scripts/control_linux.sh probe can0
   本地日志为 `artifacts/github-sync-verification.log`。
 - 原始环境、模型、数据、检查点、查看器及缓存继续排除；相机/控制/Notebook安装入口和
   软件锁定版本可用于重建。当前所有实物验收状态仍为未验证，抓取待开发清单继续保留。
-- 实际提交哈希、普通推送及远端核验结果在成功后追加，不能以本节准备记录代替推送成功。
+- 完整验收退出码0：108个不同测试、CPU/GPU视觉、运动学、关节故障模拟、Gemini 2插件、
+  合成ACT100步batch2及策略/预处理器重载通过。训练损失5.336873769760132，验证损失
+  1.1031168699264526，末步显存峰值1011996160字节；仍不证明物理抓取成功。
+- 实现内容已提交为 `f6c6d95c05c95bd3c85380385a9cf6cdaeab6dfc`（61个文件），
+  并普通推送至既有GitHub仓库main。随后于2026-10-15 13:29:00 UTC独立查询远端main，
+  与本地HEAD完全一致，工作区干净；未强推、未改变仓库可见性。
+- 推送原始输出和远端核验保存在本地 `artifacts/github-sync-push.log` 与
+  `artifacts/github-sync-remote-verification.json`。本段成功确认记录以额外文档提交保存，
+  并继续普通推送；日后新增代码仍需再次提交/同步。

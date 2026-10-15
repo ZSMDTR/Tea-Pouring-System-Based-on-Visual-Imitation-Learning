@@ -71,3 +71,10 @@ $rebotRepo = "\\wsl.localhost\Ubuntu-22.04\home\zsmdtr\projects\rebot-tea"
 旧轮次的相机、环境和抓取检查摘要保留各自检查时刻与验证范围。
 环境目录、第三方下载、训练数据/检查点、原始日志、相机查看器可执行文件和缓存
 仍不纳入 Git；安装/重建入口、锁定版本和结果摘要随仓库保存。
+
+实现内容提交为
+[`f6c6d95`](https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Imitation-Learning/commit/f6c6d95c05c95bd3c85380385a9cf6cdaeab6dfc)，
+共61个文件。已通过现有Windows Git/GCM认证普通推送到main，随后独立执行
+`ls-remote --heads origin main`，确认远端与本地均为该完整提交哈希，工作区干净。
+核验时刻：2026-10-15 13:29:00 UTC。没有强推或更改仓库可见性。
+此后补充的发布记录仅更新文档，并继续按普通提交/推送保存。

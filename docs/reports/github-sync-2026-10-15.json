@@ -91,5 +91,14 @@
     "local executable installers/viewer"
   ],
   "local_full_report": "artifacts/prehardware-report.json",
-  "local_log": "artifacts/github-sync-verification.log"
+  "local_log": "artifacts/github-sync-verification.log",
+  "publication_confirmation": {
+    "content_commit": "f6c6d95c05c95bd3c85380385a9cf6cdaeab6dfc",
+    "content_file_count": 61,
+    "normal_push_passed": true,
+    "remote_main_verified_equal_to_content_commit": true,
+    "verified_at_utc": "2026-10-15T13:29:00.531643+00:00",
+    "force_push_used": false,
+    "note": "Publication confirmation is saved in a subsequent documentation commit."
+  }
 }
