@@ -7,15 +7,17 @@
     "confirmed_by": "user",
     "confirmed_on": "2026-10-15"
   },
-  "usb_can_model": null,
+  "usb_can_model": "candleLight USB to CAN adapter (Windows USB enumeration only)",
   "usb_can_reference": {
     "official_kit_interface": "PCAN-USB",
-    "actual_hardware_identity_verified": false,
+    "actual_hardware_identity_verified": true,
+    "windows_detected_usb_identity": "1d50:606f",
+    "windows_detection_date": "2026-10-23",
     "source_url": "https://wiki.seeedstudio.com/cn/rebot_b601_rs_getting_started/"
   },
-  "usb_vid_pid": null,
-  "owner_os": null,
-  "channel": null,
+  "usb_vid_pid": "1d50:606f",
+  "owner_os": "linux",
+  "channel": "can0",
   "firmware": null,
   "calibration_record": null,
   "parameter_readback_record": null,
@@ -34,6 +36,7 @@
   "tcp_transform": null,
   "gripper_mapping": null,
   "stop_behavior": null,
-  "camera_model": "Orbbec Gemini 2",
+  "camera_model": "Orbbec Gemini 305",
+  "scene_camera_model": "Orbbec Gemini 2",
   "leader_model": null
 }

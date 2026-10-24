@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from rebot_tea.orbbec import (
-    Gemini2Settings, Gemini2Source, color_to_rgb, list_devices, save_packet,
+    Gemini2Settings, Gemini2Source, color_to_rgb, is_gemini305, list_devices, save_packet,
 )
 from tests.orbbec_fakes import FakeSDK, Frame, Frames
 
@@ -36,6 +36,32 @@ class OrbbecTests(unittest.TestCase):
         self.assertEqual(result[0]["serial_number"], "SN0")
         self.assertEqual(result[0]["profiles"]["color"][0]["width"], 4)
         self.assertFalse(self.sdk.started)
+
+    def test_gemini305_is_distinct_and_coexists_with_gemini2(self):
+        sdk = FakeSDK(("Orbbec Gemini 2", "Orbbec Gemini 305"), firmware="1.0.30")
+        devices = list_devices(sdk)
+        self.assertTrue(devices[0]["is_gemini2"])
+        self.assertFalse(devices[0]["is_gemini305"])
+        self.assertFalse(devices[1]["is_gemini2"])
+        self.assertTrue(devices[1]["is_gemini305"])
+        self.assertFalse(is_gemini305("Gemini 305g"))
+        source = Gemini2Source(Gemini2Settings(model="Orbbec Gemini 305", width=4, height=2), sdk)
+        source.connect()
+        self.addCleanup(source.disconnect)
+        self.assertEqual(source.info["serial_number"], "SN1")
+        self.assertEqual(source.info["selected_model"], "Orbbec Gemini 305")
+        self.assertEqual(source.read_packet().rgb.shape, (2, 4, 3))
+
+    def test_gemini305_config_loads_and_rejects_unknown_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "camera.json"
+            path.write_text(json.dumps({"model": "Orbbec Gemini 305", "width": 4,
+                                        "height": 2, "fps": 30}))
+            self.assertEqual(Gemini2Settings.load(path).model, "Orbbec Gemini 305")
+            path.write_text(json.dumps({"model": "Orbbec Gemini 3", "width": 4,
+                                        "height": 2, "fps": 30}))
+            with self.assertRaisesRegex(ValueError, "supported Orbbec model"):
+                Gemini2Settings.load(path)
 
     def test_single_device_required_and_wrong_model_rejected(self):
         for names in ((), ("Gemini 2 XL",), ("Gemini 2", "Gemini 2")):

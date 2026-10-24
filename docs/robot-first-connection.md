@@ -4,6 +4,16 @@
 已有的视觉、运动学和倒茶离线代码继续保留。
 从安装到示教、训练及倒茶的完整工作顺序见 [实物工作流程](after-hardware-workflow.md)。
 
+**2026-10-23 当前设备身份：**Windows 已识别两台相机（Gemini 305 `2bc5:0840`，
+Gemini 2 `2bc5:0670`）及 USB-CAN（candleLight `1d50:606f`）。两台相机已附加
+到 WSL 并各完成 5 帧短采集；USB-CAN 已附加 WSL，`gs_usb` 创建 `can0`。
+用户确认机械臂接线并上电后，`can0` 已配置 1 Mbps，1–7 号电机只读探测全部在线、
+位置有效。2026-10-23 又完成 Arm102 与 B601-RS 的 LeRobot 校准，并对 RS 参数完成
+写入、回读和保存；首次主从运动与停止行为仍待现场验证。以
+[Arm102 → B601-RS 现场步骤](arm102-wsl-next-steps.md) 为当前进度记录。
+以下 PCAN 内容仅适用于另有实际 PCAN 设备的分支；
+本机这块 candleLight 应优先验证 Linux `gs_usb`/SocketCAN 路线。
+
 ## 本机已经准备和实际未完成的部分
 
 - WSL Ubuntu22.04：MotorBridge0.5.6、ip、usbutils、can-utils，存在peak_usb和gs_usb内核模块。
@@ -11,17 +21,20 @@
   x64 DLL 加载通过；usbipd-win 5.3.0 服务运行。当前以 WSL 为主路径。
   历史 Windows `.venv-control-win` 未在旧位置找到，若选择原生备选需重新 setup。
 - 只读doctor、1–7电机探测/位置读取，以及官方Web控制网关启动脚本已提供。
-- 当前 Windows/WSL 均未识别到本项目 USB-CAN 或 Gemini 2。
-- 用户已确认全部配件为原厂套件；按官方 PCAN-USB 路线准备，VID/PID 在插入后记录。
-- 用户尚未确认零位/参数，因此没有自动写零、改ID、使能或发送运动指令。
+- Windows 已读取本机 USB-CAN 与两台相机的 USB 身份；相机已进入 WSL 并完成短采集，
+  CAN 总线与七电机只读通信已通过，运动和现场参数仍未验证。
+- 用户确认配件来自原厂套件；实际 USB-CAN 是 candleLight，不能按 PCAN 驱动成功与否判断它。
+- 用户已确认双臂完成零位校准；RS 参数已回读保存，仍需断电重启后复核持久化。
 
-这意味着程序入口已准备，但不能宣称当前电脑插线后必然可立即运动；
-仍须按实际适配器补驱动、确认接线，完成一次实机验收。
+目前软件入口、USB-CAN 驱动、1 Mbps 总线和七电机只读通信已通过；
+首次小幅动作前仍须确认双臂起始姿态匹配、支撑与停止方式；关节方向、限位和停止行为
+需现场逐项验收。主从跟随使用上述 Arm102 现场步骤的限时命令。
 
 ## 1. 先确认适配器，不猜COM号
 
-已查询官方 B601-RS 快速入门：套件按 **PCAN-USB 兼容接口、1 Mbps** 使用；具体板卡品牌
-和 VID/PID 尚需核对。官方 BOM 未公布唯一料号，详见 [USB-CAN 查询记录](usb-can-identification.md)。
+官方 B601-RS 快速入门按 **PCAN-USB 兼容接口、1 Mbps** 描述，
+但本机实际枚举为 `candleLight 1d50:606f`。先按该实际设备验证 WSL 的 `gs_usb` 与
+SocketCAN；总线速率仍要与实物配置核对。详见 [USB-CAN 查询记录](usb-can-identification.md)。
 
 插入套件的USB-CAN后，Windows项目根目录运行：
 
@@ -74,8 +87,8 @@ usbipd attach --wsl --busid $canBusId
 
 若换了PowerShell窗口，需要重新设置$canBusId。不要在Windows原生网关运行时附加设备。
 切回Windows控制前，先停止Linux网关，再执行usbipd detach --busid $canBusId。
-进入WSL后用lsusb和ip -br link确认；PCAN路径可用peak_usb，CANable类板卡按实际固件
-选择驱动，运行PCAN固件时不能直接假定使用gs_usb。
+进入 WSL 后用 `lsusb` 和 `ip -br link` 确认。当前 `1d50:606f` 设备优先检查 `gs_usb`
+是否绑定并创建 `canN`；只有另行确认实际 PCAN 设备时才走 `peak_usb` 分支。
 
 仅在确认适配器已附加、驱动已加载并出现can0后执行：
 

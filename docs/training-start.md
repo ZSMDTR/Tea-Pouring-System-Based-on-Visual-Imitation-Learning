@@ -20,6 +20,10 @@
 
 ## 2. 确认有没有示教主臂
 
+已确认从臂腕部安装 Gemini 305，第三视角使用 Gemini 2，示教主臂为 Arm102。
+双相机的录制命令和使用条件见
+[双相机示教操作说明](dual-camera-recording.md)。
+
 直接PC控制不需要主臂。官方标准遥操采集使用reBot Arm102主臂带动B601-RS从臂。
 如果套件里只有B601-RS，没有主臂，先完成PC控制；不能直接照抄主从遥操采集命令。
 若采用拖动或其他输入设备，需另外验证同步动作/观测/视频采集，不把重力补偿功能
@@ -55,8 +59,10 @@ VS Code Notebook 可选择已验证的 `reBot ACT - Python 3.12 CUDA` 内核；�
 
 ## 4. 校准与遥操
 
-实际CAN假设为can0、主臂串口假设为/dev/ttyUSB0，需替换成真实设备。
-这些命令会涉及实物校准或运动，仅在机械台架与前述验收就绪后执行：
+Arm102 和 B601-RS 的 LeRobot 校准文件已保存，通常不要重做校准。当前主从首次启动
+因主从起始姿态差超过 5° 而被保护拒绝；最近一次读数及处理步骤见
+[Arm102 现场步骤](arm102-wsl-next-steps.md)。先对齐当前姿态，不要移除启动检查。
+下列旧命令仅作初始化参考，不要在本机直接照抄：
 
 ```bash
 export LD_LIBRARY_PATH="$PWD/.venv-training/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -65,19 +71,21 @@ export LD_LIBRARY_PATH="$PWD/.venv-training/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_P
 .venv-training/bin/lerobot-teleoperate --robot.type=rebot_b601_follower --robot.motor_family=rs --robot.port=can0 --robot.id=follower --teleop.type=rebot_102_leader --teleop.port=/dev/ttyUSB0 --teleop.id=leader
 ```
 
-按该版本的官方校准姿态操作，保持同一robot.id/teleop.id以复用标定。
-先验证主从每个关节的小幅跟随、夹爪开合和停止，再录数据。
+保留同一 `robot.id` / `teleop.id` 以复用校准。完成姿态对齐后，先验证主从每个关节的
+小幅跟随、夹爪开合和停止，再录数据。真实演示仍未录制。
 
 ## 5. 接入相机并记录演示
 
-相机已确认是 **Orbbec Gemini 2**，先按 [相机接入说明](camera-gemini2.md) 完成预览和
-采集检查。项目已安装 SDK 并提供 `orbbec_gemini2` 相机插件：使用
-`bash scripts/camera.sh lerobot record` 加载后转交固定的官方 LeRobot 录制入口，
-相机参数片段和设备验证方法见相机文档。无需修改上游源码。
-首版 ACT 继续使用 RGB 字段 `observation.images.scene`，不自动把深度加入当前策略输入。
+当前是两台相机：第三视角 **Gemini 2 → scene**，腕部 **Gemini 305 → wrist**。
+项目插件分别为 `orbbec_gemini2`、`orbbec_gemini305`，由
+`bash scripts/camera.sh lerobot record` 注册并转交固定的官方 LeRobot 录制入口。
+使用 `config/cameras.teapot-dual.json` 配置两路 RGB，按
+[双相机示教操作说明](dual-camera-recording.md) 完成设备枚举、预览、录制与训练。
+ACT 输入同时包含 `observation.images.scene` 和 `observation.images.wrist`；
+当前未将深度加入策略输入。两路同一回合记录不代表两机硬件同步。
 
 控制阶段可不使用相机；训练视觉策略时必须恢复相机和同步视频。
-运行 `bash scripts/camera.sh list` 确认 Gemini 2 序列号和支持模式，再运行 capture 检查。
+运行 `bash scripts/camera.sh list` 确认两台相机的序列号和支持模式，再分别运行 capture 检查。
 保持安装位置与字段名称一致；通过上述项目包装入口录制，配置RS从臂、实际主臂及：
 
 - dataset.repo_id=local/empty-teapot-test。

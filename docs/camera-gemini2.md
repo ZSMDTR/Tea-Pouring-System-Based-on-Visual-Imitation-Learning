@@ -1,5 +1,10 @@
 # Orbbec Gemini 2 相机接入
 
+**2026-10-23 更新：**Gemini 2 现为固定第三视角（`scene`），腕部另有 Gemini 305
+（`wrist`）。Windows 分别枚举到 `2bc5:0670` 和 `2bc5:0840`；两台均已附加到
+WSL 并各完成 5 帧 RGB-D 短采集，双机长时稳定性与标定尚未验收。
+双相机录制见 [操作说明](dual-camera-recording.md)。下方 2026-10-15 状态为历史准备记录。
+
 2026-10-15 用户确认使用 **Orbbec Gemini 2**。本文件中的设备是 Gemini 2；
 SDK 对 Gemini 2 XL 的支持路线不同，不能互相替代型号。
 

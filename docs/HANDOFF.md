@@ -1,13 +1,58 @@
 # 项目交接：Seeed reBot Arm B601-RS 茶壶抓取与倒茶
 
-更新时间：2026-10-15
+更新时间：2026-10-24
 
 WSL 项目路径：`/home/zsmdtr/projects/rebot-tea`  
 GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Imitation-Learning`
 
 > **新对话开始时先检查当前工作区文件。** 先进入上述 WSL 项目，阅读本文件、`README.md` 和 `docs/robot-first-connection.md`，然后运行 `git status --short --branch`。以当前文件和代码为准，不要假设此前状态仍未变化，也不要先重建或覆盖已有环境。
 
-## 1. 项目目标和硬件型号
+## 2026-10-23 设备身份与双相机录制更新（优先于下方历史状态）
+
+- 用户确认腕部相机为 **Orbbec Gemini 305**、第三视角为 **Orbbec Gemini 2**。
+  Windows 枚举分别为 `2bc5:0840`、`2bc5:0670`。2026-10-23 已通过 `usbipd`
+  附加到 WSL，`lsusb` 与 Orbbec SDK 同时识别两台；各自 5 帧 RGB-D 短采集成功。
+  Gemini 305 固件 1.0.70、USB 2.1；Gemini 2 固件 1.4.92、USB 3.0。
+  尚未验证双机同时长时采集、外参或真实示教录制。重启/拔线后需重查附加状态。
+- Windows 只读枚举 USB-CAN 为 **candleLight `1d50:606f`**；早期 PCAN 结论是设备
+  未枚举前的资料推断。2026-10-23 已将该适配器附加到 WSL，`gs_usb` 自动创建
+  `can0`。用户确认机械臂已固定、接好 CAN/电源并上电后，已把 `can0` 配置为
+  1 Mbps；`scripts/control_linux.sh doctor can0` 通过。只读探测确认 1–7 号电机
+  全部在线且位置读数有效，结果在 `artifacts/motors-linux.json`。探测只发查询帧，
+  未使能、校零、写参数或运动。零位、参数回读、关节方向/限位和停止行为仍未验收。
+- 同日已运行 `bash scripts/control_linux.sh gateway can0`，网关监听
+  `ws://127.0.0.1:9002`；Windows 本机 TCP 端口检查通过，并已打开 MotorBridge Studio。
+  这只证明软件入口可达，Studio 内连接、型号选择、扫描及任何实物调试仍需现场确认。
+  当前会话结束、WSL 重启或网关停止后，须重新检查并启动服务。
+- 双相机 LeRobot 插件 `orbbec_gemini305`/`orbbec_gemini2` 对应 `wrist`/`scene`，
+  配置见 `config/cameras.teapot-dual.json`，操作见 `docs/dual-camera-recording.md`。
+  640×480 RGB 30 fps 是待相机列表确认的请求值，非实机验收结果。
+- 标准 `lerobot-record` 需真实 teleop。**Arm102 主臂是否具备仍未知**；文档中的
+  `rebot_102_leader` 命令仅在有主臂且已完成实物验收时使用。现有手柄记录入口只录
+  单台相机，不能与双相机数据字段或训练配置直接混用。
+- 本轮离线测试验证插件注册、双相机配置解析和原生 LeRobotDataset 双图像字段；
+  两台相机分别完成短采集，示教、真实数据录制和模型训练仍未执行。
+
+## 2026-10-24 WSL → 原生 Linux 迁移交接（当前优先）
+
+- 当前可访问的工程是 WSL2，不是原生 Linux：`/home/zsmdtr/projects/rebot-tea`；内核为
+  `6.18.33.2-microsoft-standard-WSL2`，Python 3.10.12。请勿把本次云/终端会话误认为
+  已在原生 Linux 中完成安装或硬件验收。
+- GitHub `main` 与本地 `main` 当前都在 `7ec8527`，本地有已暂存、未暂存和未跟踪改动。
+  双相机、游戏手柄及 Arm102 交接文件均有未推送内容。迁移以完整项目备份为准，
+  不能只从 GitHub 克隆。详见 [原生 Linux 迁移包与步骤](native-linux-migration.md)。
+- 已确认示教主臂是 reBot Arm102。`leader.json` 与 `follower.json` 均已保存；本轮不重做校准。
+  最近两次主从启动都被首次姿态差保护拦截，未通过第一条动作目标。最新截图读数为：
+  shoulder_pan 主臂 -16.2° / 从臂 -2.1°，wrist_flex -6.3° / +0.1°，
+  wrist_roll +19.4° / +1.2°。继续保持 5° 检查；先对齐姿态，再在现场逐轴验证方向和停止。
+- 当前 WSL 会话的 USB-CAN、CH340、两台 Orbbec 设备未附加；`ip -br link` 只有 `lo`、`eth0`，
+  没有 `can0`。这只描述本次 WSL 会话。进入原生 Linux 后应重新检查 USB、CAN 和串口。
+- 当前 WSL 的 `nvidia-smi` 可识别 RTX 5060 Laptop，驱动 573.24，显示 CUDA 12.8；
+  原生 Linux 仍须独立安装/确认 NVIDIA 驱动并运行 `nvidia-smi`。
+- 备份包不含 `.venv*`；新系统要在核实 GPU 驱动后重建。仓库没有单独安装系统 CUDA Toolkit 的脚本；
+  `bootstrap.sh` / `bootstrap_training.sh` 安装锁定的 PyTorch CUDA 12.8 wheels 与项目环境。
+
+## 1. 项目目标和硬件型号（历史基线；与上方当前状态冲突时以上方为准）
 
 最终任务：视觉识别茶壶并抓取，向随机摆放的不透明茶杯倒水；达到杯容量的 90% 时停止。用户已说明机械臂整套和相机已具备。目前阶段聚焦电脑连接及机械臂控制，杯子和相机暂缓。
 
@@ -64,7 +109,7 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 - 运动学数值比较、CPU/GPU 视觉推理和离线回放通过。
 - 临时虚拟 CAN `rebotvcan0` 上 SDK probe 流程可运行，但 7 个电机均离线；虚拟接口已移除。此项不代表实物连接成功。
 
-## 6. 未完成的问题
+## 6. 未完成的问题（2026-10-15 历史清单；当前事项见上方迁移交接）
 
 1. USB-CAN 型号、驱动和由 Windows/WSL 哪一侧持有尚未确定；真实 CAN 接口和机械臂从未连通验证。
 2. 1–7 号电机在线状态、固件、零位校准、参数读回及运动方向待现场确认。
@@ -76,7 +121,7 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 6. 茶壶专用抓取策略未训练；不透明杯的实际反馈传感、余流测量和停流策略待现场验证。
 7. Git 状态和远端应由新对话重新检查；交接文件是否已提交不能假定。
 
-## 7. 下一步具体任务
+## 7. 原 WSL 工作顺序（历史记录；迁移后步骤见 native-linux-migration.md）
 
 ### P0：在 WSL 接手工程
 

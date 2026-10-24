@@ -1,4 +1,4 @@
-"""Gemini 2 RGB-D acquisition; no robot imports or motor commands.
+"""Gemini 2 and Gemini 305 RGB-D acquisition; no robot or motor commands.
 
 Uses the public API of orbbec/pyorbbecsdk (Apache-2.0), installed as
 pyorbbecsdk2. SDK loading is deferred so offline tests can use an injected SDK.
@@ -19,6 +19,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class Gemini2Settings:
+    model: str = "Orbbec Gemini 2"
     serial_number: str | None = None
     width: int = 640
     height: int = 480
@@ -29,6 +30,8 @@ class Gemini2Settings:
     rectify: bool = True
 
     def __post_init__(self):
+        if self.model not in ("Orbbec Gemini 2", "Orbbec Gemini 305"):
+            raise ValueError("Camera model must be Orbbec Gemini 2 or Orbbec Gemini 305")
         for name in ("width", "height", "fps", "timeout_ms"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be a positive integer")
@@ -50,12 +53,14 @@ class Gemini2Settings:
     @classmethod
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or data.get("model") != "Orbbec Gemini 2":
-            raise ValueError("Camera config must identify Orbbec Gemini 2")
-        allowed = {item.name for item in fields(cls)} | {"model"}
+        if not isinstance(data, dict) or data.get("model") not in (
+            "Orbbec Gemini 2", "Orbbec Gemini 305"
+        ):
+            raise ValueError("Camera config must identify a supported Orbbec model")
+        allowed = {item.name for item in fields(cls)}
         if set(data) - allowed:
             raise ValueError(f"Unknown camera settings: {sorted(set(data) - allowed)}")
-        return cls(**{key: val for key, val in data.items() if key != "model"})
+        return cls(**data)
 
 
 @dataclass(frozen=True)
@@ -82,6 +87,14 @@ def is_gemini2(name):
     return re.sub(r"[^a-z0-9]", "", name.lower()) in ("gemini2", "orbbecgemini2")
 
 
+def is_gemini305(name):
+    return re.sub(r"[^a-z0-9]", "", name.lower()) in ("gemini305", "orbbecgemini305")
+
+
+def matches_model(name, model):
+    return is_gemini2(name) if model == "Orbbec Gemini 2" else is_gemini305(name)
+
+
 def device_info(device):
     info = device.get_device_info()
     return {
@@ -100,6 +113,7 @@ def list_devices(sdk=None):
         device = devices.get_device_by_index(index)
         info = device_info(device)
         info["is_gemini2"] = is_gemini2(info["name"])
+        info["is_gemini305"] = is_gemini305(info["name"])
         pipeline = sdk.Pipeline(device)
         info["profiles"] = {}
         for label, sensor in (("color", sdk.OBSensorType.COLOR_SENSOR),
@@ -167,7 +181,7 @@ class Gemini2Source:
 
     def connect(self):
         if self.connected:
-            raise RuntimeError("Gemini 2 is already connected")
+            raise RuntimeError(f"{self.settings.model} is already connected")
         sdk = self.sdk = self.sdk or load_sdk()
         self.context = sdk.Context()
         devices = self.context.query_devices()
@@ -175,17 +189,23 @@ class Gemini2Source:
         for index in range(devices.get_count()):
             device = devices.get_device_by_index(index)
             info = device_info(device)
-            if is_gemini2(info["name"]) and (
+            if matches_model(info["name"], self.settings.model) and (
                 self.settings.serial_number is None
                 or info["serial_number"] == self.settings.serial_number
             ):
                 matches.append((device, info))
         if len(matches) != 1:
-            raise RuntimeError(f"Expected one matching Gemini 2, found {len(matches)}; check USB/SN")
+            raise RuntimeError(
+                f"Expected one matching {self.settings.model}, found {len(matches)}; check USB/SN"
+            )
         device, self.info = matches[0]
-        firmware = re.search(r"(\d+)\.(\d+)\.(\d+)", self.info["firmware"])
-        if firmware is None or tuple(map(int, firmware.groups())) < (1, 4, 92):
-            raise ValueError("Gemini 2 firmware must be >= 1.4.92 for the selected SDK v2")
+        self.info["selected_model"] = self.settings.model
+        if self.settings.model == "Orbbec Gemini 2":
+            firmware = re.search(r"(\d+)\.(\d+)\.(\d+)", self.info["firmware"])
+            if firmware is None or tuple(map(int, firmware.groups())) < (1, 4, 92):
+                raise ValueError("Gemini 2 firmware must be >= 1.4.92 for the selected SDK v2")
+        elif not isinstance(self.info["firmware"], str) or not self.info["firmware"].strip():
+            raise ValueError("Gemini 305 firmware version is missing")
         self.pipeline = sdk.Pipeline(device)
         config = sdk.Config()
         color_list = self.pipeline.get_stream_profile_list(sdk.OBSensorType.COLOR_SENSOR)
@@ -229,10 +249,10 @@ class Gemini2Source:
 
     def read_packet(self):
         if not self.connected:
-            raise RuntimeError("Gemini 2 is not connected")
+            raise RuntimeError(f"{self.settings.model} is not connected")
         frames = self.pipeline.wait_for_frames(self.settings.timeout_ms)
         if frames is None:
-            raise TimeoutError("Gemini 2 did not return a synchronized RGB-D frameset")
+            raise TimeoutError(f"{self.settings.model} did not return a synchronized RGB-D frameset")
         host_s = self.clock()
         if not math.isfinite(host_s):
             raise ValueError("Invalid host monotonic timestamp")

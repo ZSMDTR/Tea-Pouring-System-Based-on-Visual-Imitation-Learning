@@ -13,6 +13,7 @@ from .orbbec import Gemini2Settings, Gemini2Source, list_devices
 @CameraConfig.register_subclass("orbbec_gemini2")
 @dataclass
 class Gemini2CameraConfig(CameraConfig):
+    model: str = "Orbbec Gemini 2"
     width: int = 640
     height: int = 480
     fps: int = 30
@@ -25,17 +26,29 @@ class Gemini2CameraConfig(CameraConfig):
     use_depth: bool = False
 
     def __post_init__(self):
+        expected = {
+            "orbbec_gemini2": "Orbbec Gemini 2",
+            "orbbec_gemini305": "Orbbec Gemini 305",
+        }[self.type]
+        if self.model != expected:
+            raise ValueError(f"{self.type} requires model={expected}")
         if self.use_rgb is not True or type(self.use_depth) is not bool:
-            raise ValueError("Gemini 2 plugin requires RGB; use_depth must be boolean")
+            raise ValueError("Orbbec plugin requires RGB; use_depth must be boolean")
         self.settings()  # Share validation with the standalone acquisition path.
 
     def settings(self):
         return Gemini2Settings(**{
             name: getattr(self, name) for name in (
-                "serial_number", "width", "height", "fps", "color_format", "timeout_ms",
+                "model", "serial_number", "width", "height", "fps", "color_format", "timeout_ms",
                 "max_pair_skew_ms", "rectify",
             )
         })
+
+
+@CameraConfig.register_subclass("orbbec_gemini305")
+@dataclass
+class Gemini305CameraConfig(Gemini2CameraConfig):
+    model: str = "Orbbec Gemini 305"
 
 
 class Gemini2Camera(Camera):
@@ -68,7 +81,7 @@ class Gemini2Camera(Camera):
 
     def connect(self, warmup=True):
         if self.is_connected:
-            raise RuntimeError("Gemini 2 camera is already connected")
+            raise RuntimeError(f"{self.config.model} camera is already connected")
         self._source = self._source_factory(self.config.settings())
         try:
             self._source.connect()
@@ -78,7 +91,9 @@ class Gemini2Camera(Camera):
             self._error = None
             self._stop.clear()
             self._connected = True
-            self._thread = threading.Thread(target=self._capture, name="gemini2-capture", daemon=True)
+            self._thread = threading.Thread(
+                target=self._capture, name=f"{self.config.type}-capture", daemon=True
+            )
             self._thread.start()
         except Exception:
             self._source.disconnect()
@@ -101,9 +116,9 @@ class Gemini2Camera(Camera):
 
     def _check(self):
         if not self.is_connected:
-            raise RuntimeError("Gemini 2 camera is not connected")
+            raise RuntimeError(f"{self.config.model} camera is not connected")
         if self._error is not None:
-            raise RuntimeError(f"Gemini 2 acquisition stopped: {self._error}") from self._error
+            raise RuntimeError(f"{self.config.model} acquisition stopped: {self._error}") from self._error
 
     @staticmethod
     def _timeout_ms(value):
@@ -115,7 +130,7 @@ class Gemini2Camera(Camera):
     def _check_age(self, packet, max_age_ms):
         age = self._clock() - packet.host_monotonic_s
         if age < 0 or age > self._timeout_ms(max_age_ms):
-            raise TimeoutError("Latest Gemini 2 frame is stale or its clock is invalid")
+            raise TimeoutError(f"Latest {self.config.model} frame is stale or its clock is invalid")
 
     def read(self):
         return self.async_read(self.config.timeout_ms)
@@ -130,7 +145,7 @@ class Gemini2Camera(Camera):
             )
             self._check()
             if not ready:
-                raise TimeoutError("No new Gemini 2 frame before timeout")
+                raise TimeoutError(f"No new {self.config.model} frame before timeout")
             self._check_age(self._packet, timeout_ms)
             self._consumed = self._sequence
             self._rgb_packet = self._packet
@@ -142,6 +157,20 @@ class Gemini2Camera(Camera):
             self._check_age(self._packet, max_age_ms)
             self._rgb_packet = self._packet
             return self._packet.rgb.copy()
+
+    def read_latest_with_metadata(self, max_age_ms=200):
+        """Copy the latest RGB and its timestamps atomically, without waiting for a new frame."""
+        with self._condition:
+            self._check()
+            packet = self._packet
+            self._check_age(packet, max_age_ms)
+            self._rgb_packet = packet
+            return packet.rgb.copy(), {
+                "camera_host_s": packet.host_monotonic_s,
+                "camera_frame_index": packet.color_frame_index,
+                "camera_timestamp_us": packet.color_timestamp_us,
+                "depth_timestamp_us": packet.depth_timestamp_us,
+            }
 
     def read_latest_depth(self, max_age_ms=500):
         with self._condition:
@@ -156,7 +185,7 @@ class Gemini2Camera(Camera):
         self._stop.set()
         self._thread.join(self.config.timeout_ms / 1000.0 + 2.0)
         if self._thread.is_alive():
-            raise RuntimeError("Gemini 2 capture thread did not stop; device ownership retained")
+            raise RuntimeError(f"{self.config.model} capture thread did not stop; device ownership retained")
         try:
             self._source.disconnect()
         finally:
@@ -164,3 +193,11 @@ class Gemini2Camera(Camera):
                 self._connected = False
                 self._condition.notify_all()
             self._source, self._packet, self._rgb_packet = None, None, None
+
+
+class Gemini305Camera(Gemini2Camera):
+    """LeRobot camera instance for the separately selected Gemini 305 device."""
+
+    @staticmethod
+    def find_cameras():
+        return [item for item in list_devices() if item["is_gemini305"]]

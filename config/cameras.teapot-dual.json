@@ -1,0 +1,20 @@
+{
+  "scene": {
+    "type": "orbbec_gemini2",
+    "serial_number": "AY6R4630030",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "color_format": "RGB",
+    "use_depth": false
+  },
+  "wrist": {
+    "type": "orbbec_gemini305",
+    "serial_number": "CV2F8610009M",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "color_format": "RGB",
+    "use_depth": false
+  }
+}

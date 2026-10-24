@@ -1,4 +1,4 @@
-"""Check SDK, enumerate Gemini 2, or capture RGB-D samples without robot control."""
+"""Check SDK, enumerate Orbbec cameras, or capture RGB-D without robot control."""
 import argparse
 import json
 import time
@@ -34,14 +34,18 @@ def main():
             report["passed"] = True
         elif args.action == "list":
             report["devices"] = list_devices()
-            report["passed"] = any(item["is_gemini2"] for item in report["devices"])
+            report["passed"] = any(
+                item["is_gemini2"] or item["is_gemini305"] for item in report["devices"]
+            )
             if not report["passed"]:
-                report["error"] = "No Gemini 2 visible; check USB ownership, permissions and firmware"
+                report["error"] = "No supported Orbbec camera visible; check USB ownership and permissions"
         else:
-            output = args.output or Path("data/raw") / f"gemini2-{time.time_ns()}"
+            settings = Gemini2Settings.load(args.config)
+            prefix = "gemini305" if settings.model == "Orbbec Gemini 305" else "gemini2"
+            output = args.output or Path("data/raw") / f"{prefix}-{time.time_ns()}"
             output.mkdir(parents=True, exist_ok=False)
             capture_output = output
-            source = Gemini2Source(Gemini2Settings.load(args.config))
+            source = Gemini2Source(settings)
             source.connect()
             samples = []
             with (output/"frames.jsonl").open("x", encoding="utf-8") as stream:
@@ -51,11 +55,12 @@ def main():
                     stream.write(json.dumps(sample) + "\n")
                     stream.flush()
                     samples.append(sample)
-            (output/"scene.json").write_text(json.dumps(samples[-1], indent=2) + "\n")
+            camera_key = "wrist" if settings.model == "Orbbec Gemini 305" else "scene"
+            (output/f"{camera_key}.json").write_text(json.dumps(samples[-1], indent=2) + "\n")
             elapsed = samples[-1]["host_monotonic_s"] - samples[0]["host_monotonic_s"]
             report.update({
                 "passed": True, "device": source.info, "captured_frames": len(samples),
-                "output": str(output.resolve()), "camera_key": "scene",
+                "output": str(output.resolve()), "camera_key": camera_key,
                 "host_observed_fps": (len(samples)-1)/elapsed if elapsed > 0 else None,
                 "max_pair_skew_ms": max(abs(row["color_timestamp_us"] - row["depth_timestamp_us"])
                                         / 1000.0 for row in samples),

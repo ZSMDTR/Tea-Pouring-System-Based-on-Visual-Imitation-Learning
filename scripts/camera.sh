@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 unset PYTHONPATH PYTHONHOME
+# Avoid OpenCV thread oversubscription during simultaneous WSL camera capture.
+export OPENCV_FOR_THREADS_NUM=1
 action="${1:-check}"
 if [[ $# -gt 0 ]]; then shift; fi
 case "$action" in

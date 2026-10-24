@@ -1,5 +1,6 @@
 """Run with scripts/camera.sh test; all device traffic is replaced by a queue."""
 import importlib.util
+import json
 import queue
 import tempfile
 import time
@@ -54,6 +55,73 @@ class OrbbecIntegrationTests(unittest.TestCase):
         with patch("rebot_tea.orbbec.load_sdk", side_effect=AssertionError("SDK must remain closed")):
             camera = make_cameras_from_configs({"scene": config})["scene"]
             self.assertFalse(camera.is_connected)
+
+    def test_dual_camera_registry_preserves_wrist_and_scene_roles(self):
+        import draccus
+        from lerobot.cameras import make_cameras_from_configs
+        from lerobot.cameras.configs import CameraConfig
+        from rebot_tea.lerobot_orbbec import Gemini2Camera, Gemini305Camera
+
+        configs = {
+            "wrist": draccus.decode(CameraConfig, {
+                "type": "orbbec_gemini305", "width": 4, "height": 2,
+            }),
+            "scene": draccus.decode(CameraConfig, {
+                "type": "orbbec_gemini2", "width": 4, "height": 2,
+            }),
+        }
+        with patch("rebot_tea.orbbec.load_sdk", side_effect=AssertionError("No USB access")):
+            cameras = make_cameras_from_configs(configs)
+        self.assertIsInstance(cameras["wrist"], Gemini305Camera)
+        self.assertIsInstance(cameras["scene"], Gemini2Camera)
+        self.assertEqual(cameras["wrist"].config.model, "Orbbec Gemini 305")
+        self.assertEqual(cameras["scene"].config.model, "Orbbec Gemini 2")
+
+    def test_dual_record_config_and_native_dataset_schema(self):
+        import draccus
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+        from lerobot.scripts.lerobot_record import RecordConfig
+
+        camera_configs = json.loads(Path("config/cameras.teapot-dual.json").read_text())
+        config = draccus.decode(RecordConfig, {
+            "robot": {"type": "rebot_b601_follower", "motor_family": "rs",
+                      "port": "can0", "id": "follower", "cameras": camera_configs},
+            "teleop": {"type": "rebot_102_leader", "port": "/dev/ttyUSB0", "id": "leader"},
+            "dataset": {"repo_id": "local/dual-camera-test", "single_task": "Synthetic schema check",
+                        "fps": 30, "push_to_hub": False},
+        })
+        self.assertEqual(set(config.robot.cameras), {"scene", "wrist"})
+        self.assertEqual(config.robot.cameras["wrist"].model, "Orbbec Gemini 305")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "dataset"
+            features = {
+                f"observation.images.{name}": {
+                    "dtype": "image", "shape": (2, 4, 3),
+                    "names": ["height", "width", "channels"],
+                } for name in ("scene", "wrist")
+            }
+            features.update({
+                "observation.state": {"dtype": "float32", "shape": (7,), "names": None},
+                "action": {"dtype": "float32", "shape": (7,), "names": None},
+            })
+            dataset = LeRobotDataset.create(
+                repo_id="local/dual-camera-test", root=root,
+                robot_type="rebot_b601_follower", fps=30, use_videos=False,
+                features=features,
+            )
+            dataset.add_frame({
+                "observation.images.scene": np.full((2, 4, 3), 10, dtype=np.uint8),
+                "observation.images.wrist": np.full((2, 4, 3), 20, dtype=np.uint8),
+                "observation.state": np.zeros(7, dtype=np.float32),
+                "action": np.zeros(7, dtype=np.float32),
+                "task": "Synthetic schema check",
+            })
+            dataset.save_episode()
+            dataset.finalize()
+            reloaded = LeRobotDataset("local/dual-camera-test", root=root)
+            self.assertEqual(tuple(reloaded[0]["observation.images.wrist"].shape), (3, 2, 4))
+            self.assertEqual(tuple(reloaded[0]["observation.images.scene"].shape), (3, 2, 4))
 
     def test_async_returns_new_frames_and_times_out_when_consumed(self):
         self.camera.connect()

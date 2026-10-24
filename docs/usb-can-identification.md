@@ -1,5 +1,20 @@
 # B601-RS USB-CAN 型号查询
 
+## 2026-10-23 本机只读识别更新
+
+Windows `usbipd list` 与设备列表已看到 **`candleLight USB to CAN adapter`，USB ID
+`1d50:606f`**。这是当前插入这台电脑的转换器的实际 USB 身份；下方 2026-10-15
+“按 PCAN-USB 准备”的结论是当时尚未见到设备的资料推断，不能覆盖本次识别。
+`1d50:606f` 是 Linux `gs_usb` 驱动支持的 candleLight 类设备；仍须在现场把它附加到
+WSL，确认 `canN`、波特率、固件、接线和电机响应。上述是设备接入前的待办；
+2026-10-23 已在用户确认机械臂接线/上电后，附加 WSL 并由 `gs_usb` 创建 `can0`，
+按 1 Mbps 只读探测 1–7 号电机均在线且位置有效。仍未执行校零、参数写入或电机运动。
+Windows PEAK 驱动的安装不证明此设备走 PCAN 路线。
+来源：[candleLight 固件](https://github.com/candle-usb/candleLight_fw)、
+[Linux gs_usb 驱动](https://github.com/torvalds/linux/blob/master/drivers/net/can/usb/gs_usb.c)。
+
+## 2026-10-15 资料查询记录
+
 查询日期：2026-10-15。官方资料可确认套件使用 **PCAN-USB 兼容接口**，不能仅据接口名称
 认定板卡为 PEAK 原厂产品；实际板卡品牌、硬件版本、固件和 VID/PID 仍需在实物上核对。
 
@@ -15,7 +30,7 @@
 | [Seeed 官方 RS BOM](https://github.com/Seeed-Projects/reBot-DevArm/blob/main/hardware/reBot_B601_RS/README.md) | `CAN-USB driver board`，型号栏为空；采购链接指向预装 PCAN 固件的 USB-to-CAN 板（ASIN `B0GBW7RTXD`） | 公开 BOM 未公布唯一商品料号，参考采购项是 PCAN 固件转换板 |
 | [Seeed RS 电机 SDK](https://wiki.seeedstudio.com/rebot_arm_b601_rs_mit_control/) | `CANABLE / PCAN-USB, etc.` | 其他供货批次或自行配置可能使用不同兼容板，需要读实物身份 |
 
-因此现阶段准确名称是：**B601-RS 套件 USB-to-CAN 板，PCAN-USB 兼容固件/接口**。
+当时尚未看到设备时，资料查询得到的预期接口是 **PCAN-USB 兼容固件/接口**。
 不要以此把未验证的板卡写成 PEAK 某个具体产品编号，也不要用 DM 的 USB2CAN 串口桥配置
 替代 RS 的 SocketCAN 通道。
 
@@ -30,5 +45,7 @@
 4. 识别完成后才按首次连接文档配置 1 Mbps 并运行只读电机探测。未出现 CAN 接口时先检查
    USB、固件和驱动，不通过盲目刷固件或写电机 ID 来修复。
 
-`config/hardware.template.json` 仅新增官方参考信息，`usb_can_model` 和 `usb_vid_pid`
-继续为空，`actual_hardware_identity_verified=false`。USB-CAN 尚未在当前 WSL 枚举到。
+`config/hardware.template.json` 已记录 Windows 枚举的 USB 身份，但
+`actual_hardware_identity_verified=true` 只表示 USB 适配器身份已核对；
+模板中的 `hardware_verified=false`、`control_enabled=false` 继续阻止真机运动。
+只读通信通过不代表零位、参数和运动验收通过。

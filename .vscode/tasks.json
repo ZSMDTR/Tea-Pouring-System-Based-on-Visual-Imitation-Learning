@@ -9,24 +9,31 @@
       "problemMatcher": []
     },
     {
-      "label": "Gemini 2：检查 SDK（不连接机械臂）",
+      "label": "Orbbec：检查 SDK（不连接机械臂）",
       "type": "process",
       "command": "bash",
       "args": ["scripts/camera.sh", "check"],
       "problemMatcher": []
     },
     {
-      "label": "Gemini 2：枚举相机和流模式",
+      "label": "Orbbec：枚举相机和流模式",
       "type": "process",
       "command": "bash",
       "args": ["scripts/camera.sh", "list"],
       "problemMatcher": []
     },
     {
-      "label": "Gemini 2：采集 30 组 RGB-D（不连接机械臂）",
+      "label": "第三视角 Gemini 2：采集 30 组 RGB-D",
       "type": "process",
       "command": "bash",
-      "args": ["scripts/camera.sh", "capture", "--frames", "30"],
+      "args": ["scripts/camera.sh", "capture", "--config", "config/camera.gemini2.json", "--frames", "30"],
+      "problemMatcher": []
+    },
+    {
+      "label": "腕部 Gemini 305：采集 30 组 RGB-D",
+      "type": "process",
+      "command": "bash",
+      "args": ["scripts/camera.sh", "capture", "--config", "config/camera.gemini305.json", "--frames", "30"],
       "problemMatcher": []
     },
     {

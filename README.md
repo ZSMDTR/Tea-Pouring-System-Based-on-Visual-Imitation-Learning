@@ -11,10 +11,11 @@ Gemini 2 USB 权限和 Windows OrbbecViewer，结果与使用方法见
 当前阶段目标是完成空茶壶抓放：抓稳、抬升、放回指定区域。
 无实物时仍可开发的内容与实际缺口见 [抓取准备检查](docs/grasp-readiness.md)。
 后续目标保留为定位随机摆放的茶杯及按反馈倒茶，本阶段暂停扩展。
-用户已准备机械臂套件与 Orbbec Gemini 2 RGB-D 相机；茶杯不透明，目标为容量的90%。
-相机实时采集与标定尚未验收，接入说明见 [Gemini 2 相机](docs/camera-gemini2.md)。
+当前两台相机分别为腕部 Gemini 305、第三视角 Gemini 2；茶杯不透明，目标为容量的90%。
+两台相机已分别在 WSL 完成 RGB-D 短采集及约 10 秒双机同步运行检查；长时采集与标定尚未验收，
+录制见 [操作说明](docs/dual-camera-recording.md)。
 相机 SDK、RGB-D 采集和 LeRobot 插件已完成软件接入；使用 `bash scripts/camera.sh check`。
-官方 USB-CAN 路线已查明为 PCAN-USB 兼容接口，实物身份核对见
+Windows 已枚举到本机 USB-CAN 为 candleLight (`1d50:606f`)；WSL 的 `can0` 和七电机通信已实测，见
 [查询记录](docs/usb-can-identification.md)。
 当前可运行功能与任务差距见 [任务设计](docs/tea-task.md)。
 
@@ -25,6 +26,10 @@ Gemini 2 USB 权限和 Windows OrbbecViewer，结果与使用方法见
 
 当前工作重点是抓放流程、运动学与受限执行衔接，暂缓杯子与液位功能。
 首次实物接入请先读 [电脑连接与控制](docs/robot-first-connection.md)，
+当前 Arm102 主从跟随的校准状态、短时启动命令及停止注意事项见
+[Arm102 → B601-RS 现场步骤](docs/arm102-wsl-next-steps.md)。
+切换到原生 Linux 前的项目、数据、训练输出和校准文件备份与恢复步骤见
+[原生 Linux 迁移交接](docs/native-linux-migration.md)。
 实物验收后按 [第一次训练](docs/training-start.md) 准备示教数据。
 
 实物前的软件链路已补齐：受限关节模拟 → 原生 LeRobot 合成数据 → ACT 100步 GPU训练
@@ -40,6 +45,10 @@ Gemini 2 USB 权限和 Windows OrbbecViewer，结果与使用方法见
 [2026-10-15完整验收摘要](docs/reports/github-sync-2026-10-15.json)。
 GitHub 开源控制项目的筛选、已接入的 LeRobot 真机适配层及现场门禁见
 [开源控制接入](docs/open-source-control-integration.md)。
+
+墨将 USB 手柄的 Windows → WSL 输入桥、关节练习和 LeRobot 本地记录已接入，
+按 [手柄遥操作教程](docs/gamepad-teleoperation.md) 先练模拟后端；
+[相关 GitHub 项目比较](docs/gamepad-open-source-review.md) 说明接口、型号与验证范围。
 
 ## 开始使用
 
@@ -96,7 +105,7 @@ MockRobot 不控制夹爪。关节层新增了 LeRobot B601-RS 适配器，但�
 1. **硬件与基础通信**：确认 USB-CAN 型号/驱动、实际接口名、固件和电机 ID。
    按 Seeed B601-RS 文档完成机械装配、零位标定与低速单关节验证。
    不直接沿用 DM 型号参数；不能用“读取位置”函数名判断接口不会使能电机。
-2. **相机与标定**：使用已确认的 Orbbec Gemini 2 RGB-D 相机。
+2. **相机与标定**：使用第三视角 Gemini 2、腕部 Gemini 305 两台 Orbbec RGB-D 相机。
    实现相机采集，记录内参/畸变、深度单位、时间戳和外参。
    RGB-D 像素先反投影到相机坐标，再变换至 base；纯 RGB 必须增加已标定桌面
    或其他深度约束。二维检测框本身不能提供可靠的三维抓取位置。
@@ -110,7 +119,9 @@ MockRobot 不控制夹爪。关节层新增了 LeRobot B601-RS 适配器，但�
 5. **真实抓取验收**：低速完成空夹爪、空杯抓取及抬升，记录重复成功率。
    抓取稳定后扩展随机杯定位与液位反馈倒茶；另需液体、负载和倾倒轨迹验证。
 
-相机型号已确认，USB-CAN 型号及实际接入状态仍待记录；视觉暂用 SSDLite 预训练杯子检测基线。
+相机已在 WSL 分别短采集，`can0`/`gs_usb` 的 1 Mbps 只读探测确认七电机在线；
+双臂零位和 RS 参数已完成本次校准、回读；运动、停止行为及断电后参数持久化仍待现场验收。
+视觉暂用 SSDLite 预训练杯子检测基线。
 该 COCO 模型没有 teapot/kettle 类别，不能直接识别茶壶，也没有液位估计能力。
 不将示例 CAN 参数和示例坐标写入真实驱动。
 WSL 设备接入必须在选定适配器后验证；若驱动/USB 透传不适配，可将本 Python
