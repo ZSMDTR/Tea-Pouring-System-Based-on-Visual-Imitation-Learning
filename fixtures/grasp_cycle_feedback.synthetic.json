@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "events": [
+    {"type": "step", "action": "open_gripper", "completed": true, "observed_at_s": 0.05, "now_s": 0.05},
+    {"type": "step", "action": "approach_grasp", "completed": true, "observed_at_s": 0.10, "now_s": 0.10},
+    {"type": "step", "action": "descend_grasp", "completed": true, "observed_at_s": 0.15, "now_s": 0.15},
+    {"type": "step", "action": "close_gripper", "completed": true, "observed_at_s": 0.20, "now_s": 0.20},
+    {"type": "grasp_evidence", "confirmed": true, "observed_at_s": 0.25, "now_s": 0.25},
+    {"type": "step", "action": "lift", "completed": true, "observed_at_s": 0.30, "now_s": 0.30},
+    {"type": "step", "action": "transfer", "completed": true, "observed_at_s": 0.35, "now_s": 0.35},
+    {"type": "step", "action": "descend_place", "completed": true, "observed_at_s": 0.40, "now_s": 0.40},
+    {"type": "step", "action": "release", "completed": true, "observed_at_s": 0.45, "now_s": 0.45},
+    {"type": "release_evidence", "confirmed": true, "observed_at_s": 0.50, "now_s": 0.50},
+    {"type": "step", "action": "retreat", "completed": true, "observed_at_s": 0.55, "now_s": 0.55}
+  ]
+}
