@@ -236,6 +236,36 @@ class GamepadSessionTests(unittest.TestCase):
         self.assertEqual(self.recorder.frames, [])
         self.assertEqual(self.backend.stop_calls, 1)
 
+    def test_paired_camera_returns_both_roles_with_independent_metadata(self):
+        camera = session.PairedCamera(
+            session.SyntheticCamera(self.clock),
+            session.SyntheticCamera(lambda: self.clock() - .01),
+            max_skew_ms=25, clock=self.clock,
+        )
+        images, metadata = camera.read_latest_with_metadata()
+        self.assertEqual(set(images), {"scene", "wrist"})
+        self.assertEqual(metadata["camera_host_s"], self.clock())
+        self.assertAlmostEqual(metadata["camera_pair_skew_ms"], 10)
+        self.assertEqual(metadata["cameras"]["scene"]["camera_frame_index"], 1)
+        self.assertEqual(metadata["cameras"]["wrist"]["camera_frame_index"], 1)
+        self.assertNotEqual(images["scene"][0, 0, 2], 0)
+
+    def test_paired_camera_skew_or_staleness_stops_before_command_or_buffer(self):
+        for offset, limit, error in ((.08, 25, "skew"), (.3, 500, "stale")):
+            with self.subTest(offset=offset):
+                self.setUp()
+                camera = session.PairedCamera(
+                    session.SyntheticCamera(self.clock),
+                    session.SyntheticCamera(lambda: self.clock() - offset),
+                    max_skew_ms=limit, clock=self.clock,
+                )
+                report = self.run_session(camera=camera)
+                self.assertEqual(report["status"], "stopped_on_error")
+                self.assertIn(error, report["error"])
+                self.assertEqual(self.backend.sent, [])
+                self.assertEqual(self.recorder.frames, [])
+                self.assertEqual(self.backend.stop_calls, 1)
+
     def test_neutral_check_blocks_held_controls_and_synthetic_hardware(self):
         neutral = GamepadFrame(10, 1, (0.0,) * 6, frozenset(), True, False)
         session.require_neutral_input(neutral, hardware=True)
@@ -274,6 +304,8 @@ class GamepadCliGateTests(unittest.TestCase):
             self.args(backend="hardware"),
             self.args(backend="hardware", execute=True, hardware_config=template),
             self.args(backend="hardware", execute=True, hardware_config=template, camera="gemini2"),
+            self.args(backend="hardware", execute=True, hardware_config=template,
+                      camera="synthetic-dual"),
             self.args(execute=True), self.args(hardware_config=template),
             self.args(duration=-1), self.args(duration=float("nan")),
         ):
@@ -297,6 +329,28 @@ class GamepadCliGateTests(unittest.TestCase):
             report = json.loads(output.read_text())
             self.assertEqual(report["status"], "setup_failed")
             self.assertFalse(report["physical_task_verified"])
+
+    def test_mock_dual_cli_constructs_two_video_fields_without_hardware(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            neutral = GamepadFrame(10., 1, (0.0,) * 6, frozenset(), True, True)
+            with patch.object(self.cli, "InputBridge") as bridge, \
+                    patch.object(self.cli, "EpisodeRecorder") as recorder, \
+                    patch.object(self.cli, "run_session") as run, \
+                    patch.object(self.cli, "connect_lerobot_backend") as connect, \
+                    redirect_stdout(io.StringIO()):
+                bridge.return_value.snapshot.return_value = neutral
+                run.return_value = {"status": "duration_completed", "stop_requested": True}
+                code = self.cli.main(["--camera", "synthetic-dual", "--duration", ".01",
+                                      "--dataset-root", str(Path(directory) / "dataset"),
+                                      "--output", str(output)])
+            self.assertEqual(code, 0)
+            connect.assert_not_called()
+            kwargs = recorder.call_args.kwargs
+            self.assertEqual(set(kwargs["image_shapes"]), {"scene", "wrist"})
+            self.assertEqual(kwargs["max_camera_skew_ms"], 50)
+            self.assertTrue(kwargs["synthetic"])
+            self.assertIsInstance(run.call_args.args[2], session.PairedCamera)
 
 
 if __name__ == "__main__":

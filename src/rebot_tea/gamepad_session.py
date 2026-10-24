@@ -5,6 +5,7 @@ import time
 import numpy as np
 
 from .gamepad_control import JointJogger
+from .joints import finite_number
 
 
 class SyntheticCamera:
@@ -24,6 +25,50 @@ class SyntheticCamera:
         image[:, :, 2] = self.index % 256
         return image, {"camera_host_s": self.clock(), "camera_frame_index": self.index,
                        "camera_timestamp_us": None, "depth_timestamp_us": None}
+
+
+class PairedCamera:
+    """Pair scene/wrist by measured host receipt times, without claiming hardware sync."""
+
+    def __init__(self, scene, wrist, max_skew_ms=50, clock=time.monotonic):
+        if not finite_number(max_skew_ms) or max_skew_ms <= 0:
+            raise ValueError("max_skew_ms must be finite and positive")
+        self.cameras = {"scene": scene, "wrist": wrist}
+        self.max_skew_ms, self.clock = float(max_skew_ms), clock
+
+    def read_latest_with_metadata(self, max_age_ms=200):
+        if not finite_number(max_age_ms) or max_age_ms <= 0:
+            raise ValueError("max_age_ms must be finite and positive")
+        samples = {name: camera.read_latest_with_metadata(max_age_ms=max_age_ms)
+                   for name, camera in self.cameras.items()}
+        now = self.clock()
+        metadata = {name: value[1] for name, value in samples.items()}
+        for name, item in metadata.items():
+            if not isinstance(item, dict) or not finite_number(item.get("camera_host_s")) or \
+                    type(item.get("camera_frame_index")) is not int or \
+                    item["camera_frame_index"] < 0 or not \
+                    0 <= now - item["camera_host_s"] <= max_age_ms / 1000:
+                raise ValueError(f"{name} camera frame is stale or invalid")
+        scene_s = metadata["scene"]["camera_host_s"]
+        wrist_s = metadata["wrist"]["camera_host_s"]
+        skew_ms = abs(scene_s - wrist_s) * 1000
+        if skew_ms > self.max_skew_ms:
+            raise ValueError("dual camera host timestamp skew exceeds limit")
+        return {name: value[0] for name, value in samples.items()}, {
+            "camera_host_s": max(scene_s, wrist_s), "cameras": metadata,
+            "camera_pair_skew_ms": skew_ms,
+        }
+
+    def disconnect(self):
+        errors = []
+        for camera in self.cameras.values():
+            if hasattr(camera, "disconnect"):
+                try:
+                    camera.disconnect()
+                except Exception as error:
+                    errors.append(str(error))
+        if errors:
+            raise RuntimeError("Dual camera disconnect failed: " + "; ".join(errors))
 
 
 def require_neutral_input(frame, hardware=False):

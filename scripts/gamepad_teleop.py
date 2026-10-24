@@ -8,7 +8,7 @@ import time
 
 from rebot_tea.gamepad_bridge import InputBridge
 from rebot_tea.gamepad_recording import EpisodeRecorder
-from rebot_tea.gamepad_session import SyntheticCamera, require_neutral_input, run_session
+from rebot_tea.gamepad_session import PairedCamera, SyntheticCamera, require_neutral_input, run_session
 from rebot_tea.hardware import connect_lerobot_backend, load_verified_hardware_config
 from rebot_tea.joints import JointLimits, SimulatedJointBackend
 
@@ -51,7 +51,10 @@ def wait_neutral(bridge, hardware, timeout=30):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("mock", "hardware"), default="mock")
-    parser.add_argument("--camera", choices=("synthetic", "gemini2"), default="synthetic")
+    parser.add_argument("--camera", choices=("synthetic", "synthetic-dual", "gemini2"),
+                        default="synthetic")
+    parser.add_argument("--max-camera-skew-ms", type=float, default=50,
+                        help="Measured host timestamp limit for synthetic dual-camera recording")
     parser.add_argument("--camera-config", type=Path, default=PROJECT / "config/camera.gemini2.json")
     parser.add_argument("--hardware-config", type=Path)
     parser.add_argument("--execute", action="store_true")
@@ -71,12 +74,20 @@ def main(argv=None):
             settings = Gemini2Settings.load(args.camera_config)
             camera = Gemini2Camera(Gemini2CameraConfig(**asdict(settings)))
             camera.connect()
-            shape = (settings.height, settings.width, 3)
+            recorder_images = {"image_shape": (settings.height, settings.width, 3)}
+        elif args.camera == "synthetic-dual":
+            scene, wrist = SyntheticCamera(), SyntheticCamera()
+            wrist.image[:, :, 0] = 255 - wrist.image[:, :, 0]
+            camera = PairedCamera(scene, wrist, max_skew_ms=args.max_camera_skew_ms)
+            recorder_images = {
+                "image_shapes": {"scene": scene.image_shape, "wrist": wrist.image_shape},
+                "max_camera_skew_ms": args.max_camera_skew_ms,
+            }
         else:
             camera = SyntheticCamera()
-            shape = camera.image_shape
+            recorder_images = {"image_shape": camera.image_shape}
         root = args.dataset_root or PROJECT / "data/gamepad" / f"{args.backend}-{time.time_ns()}"
-        recorder = EpisodeRecorder(root, image_shape=shape, synthetic=args.backend == "mock")
+        recorder = EpisodeRecorder(root, synthetic=args.backend == "mock", **recorder_images)
         bridge = InputBridge(port=args.port)
         bridge.start()
         print(f"LISTENING 127.0.0.1:{bridge.port}; backend={args.backend}; dataset={root}", flush=True)

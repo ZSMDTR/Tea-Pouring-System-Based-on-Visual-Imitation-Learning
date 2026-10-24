@@ -21,6 +21,8 @@ Windows 已枚举到本机 USB-CAN 为 candleLight (`1d50:606f`)；WSL 的 `can0
 
 已建立无硬件开发环境：图片检测、RGB-D 回放、坐标转换、模拟抓取与独立运动学验证。
 所有抓取执行均为 mock，不连接机械臂；图片检测使用 TorchVision COCO 预训练基线。
+完整的合成抓放事件流程与故障锁存见 [合成空壶抓放状态机](docs/grasp-cycle-synthetic.md)；
+它需要独立的抓持与释放确认证据，不代表实物抓放成功。
 本次选定开发环境：Windows VS Code + WSL2 Ubuntu 22.04 + Python 3.10。
 项目优先放在 Linux 文件系统的 `~/projects/rebot-tea`。
 
@@ -48,6 +50,8 @@ GitHub 开源控制项目的筛选、已接入的 LeRobot 真机适配层及现�
 
 墨将 USB 手柄的 Windows → WSL 输入桥、关节练习和 LeRobot 本地记录已接入，
 按 [手柄遥操作教程](docs/gamepad-teleoperation.md) 先练模拟后端；
+[合成双视角记录](docs/dual-camera-recording.md#6-如果使用手柄示教) 可检查 scene/wrist 数据字段与主机时间差，
+尚未接入实机双相机手柄录制；
 [相关 GitHub 项目比较](docs/gamepad-open-source-review.md) 说明接口、型号与验证范围。
 
 ## 开始使用

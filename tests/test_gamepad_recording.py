@@ -14,6 +14,7 @@ from rebot_tea.gamepad_recording import EpisodeRecorder
 class MemoryDataset:
     def __init__(self, **kwargs):
         self.root = kwargs["root"]
+        self.features = kwargs["features"]
         self.root.mkdir(parents=True)
         self.frames, self.episodes = [], []
         self.finalized = False
@@ -35,6 +36,18 @@ class MemoryDataset:
 def timing(at=10.0):
     return {"input_received_s": at, "observation_read_s": at + .01,
             "camera_host_s": at - .02, "command_sent_s": at + .03}
+
+
+def dual_timing(at=10.0, scene_index=1, wrist_index=1, skew_s=.01):
+    result = timing(at)
+    scene_s, wrist_s = at - .02, at - .02 + skew_s
+    result["camera_host_s"] = max(scene_s, wrist_s)
+    result["cameras"] = {
+        "scene": {"camera_host_s": scene_s, "camera_frame_index": scene_index},
+        "wrist": {"camera_host_s": wrist_s, "camera_frame_index": wrist_index},
+    }
+    result["camera_pair_skew_ms"] = abs(skew_s) * 1000
+    return result
 
 
 class EpisodeRecorderTests(unittest.TestCase):
@@ -152,6 +165,68 @@ class EpisodeRecorderTests(unittest.TestCase):
             with self.subTest(timing=bad), self.assertRaises(ValueError):
                 self.add_frame(timing=bad)
         self.assertEqual(len(self.recorder.dataset.frames), 1)
+
+
+class DualCameraRecorderTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name) / "dual"
+        self.images = {
+            "scene": np.full((16, 16, 3), 20, dtype=np.uint8),
+            "wrist": np.full((8, 12, 3), 180, dtype=np.uint8),
+        }
+        self.recorder = EpisodeRecorder(
+            self.root, image_shapes={name: image.shape for name, image in self.images.items()},
+            max_camera_skew_ms=25, dataset_factory=MemoryDataset,
+        )
+        self.addCleanup(self.recorder.close)
+        self.recorder.start()
+
+    def add_frame(self, at=10.0, scene_index=1, wrist_index=1, skew_s=.01):
+        self.recorder.add_frame(self.images, [0.] * 7, [0.] * 7,
+                                dual_timing(at, scene_index, wrist_index, skew_s))
+
+    def test_two_video_fields_and_per_camera_timing_survive_save(self):
+        keys = {"observation.images.scene", "observation.images.wrist"}
+        self.assertTrue(keys <= set(self.recorder.dataset.features))
+        self.add_frame()
+        self.add_frame(10.1, 2, 2)
+        self.assertEqual(self.recorder.finish("success"), 0)
+        frame = self.recorder.dataset.episodes[0][0]
+        np.testing.assert_array_equal(frame["observation.images.scene"], self.images["scene"])
+        np.testing.assert_array_equal(frame["observation.images.wrist"], self.images["wrist"])
+        manifest = json.loads((self.root / "recording/manifest.json").read_text())
+        self.assertEqual(set(manifest["image_keys"]), keys)
+        self.assertFalse(manifest["hard_realtime_synchronized"])
+        timings = [json.loads(line) for line in
+                   (self.root / "recording/frames.jsonl").read_text().splitlines()]
+        self.assertEqual(timings[0]["cameras"]["scene"]["camera_frame_index"], 1)
+        self.assertEqual(timings[1]["cameras"]["wrist"]["camera_frame_index"], 2)
+        self.assertAlmostEqual(timings[0]["camera_pair_skew_ms"], 10)
+
+    def test_bad_images_timing_or_repeated_camera_does_not_enter_buffer(self):
+        self.add_frame()
+        valid = dual_timing(10.1, 2, 2)
+        cases = [
+            ({"scene": self.images["scene"]}, valid),
+            ({**self.images, "wrist": self.images["wrist"].astype(np.float32)}, valid),
+            (self.images, dual_timing(10.1, 2, 2, skew_s=.1)),
+            (self.images, dual_timing(10.1, 1, 2)),
+            (self.images, dual_timing(10.1, 2, 1)),
+            (self.images, {**valid, "camera_host_s": 10.0}),
+            (self.images, {**valid, "camera_pair_skew_ms": 0.}),
+            (self.images, {key: value for key, value in valid.items()
+                           if key != "camera_pair_skew_ms"}),
+            (self.images, {**valid, "cameras": {
+                **valid["cameras"], "wrist": {"camera_host_s": 9.0, "camera_frame_index": 2}}}),
+        ]
+        for images, metadata in cases:
+            with self.subTest(metadata=metadata), self.assertRaises(ValueError):
+                self.recorder.add_frame(images, [0.] * 7, [0.] * 7, metadata)
+            self.assertEqual(len(self.recorder.dataset.frames), 1)
+        self.add_frame(10.2, 3, 3)
+        self.assertEqual(len(self.recorder.dataset.frames), 2)
 
 
 @unittest.skipUnless(importlib.util.find_spec("lerobot"), "Run in .venv-training")

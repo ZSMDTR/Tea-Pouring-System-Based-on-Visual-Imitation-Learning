@@ -170,12 +170,16 @@ scripts/training_tools.py 仍是固定单路 scene 的合成检查，不用于�
 
 ## 6. 如果使用手柄示教
 
-现有 `scripts/gamepad.sh` 是项目自己的 LeRobotDataset 记录入口，使用 Windows 手柄桥；
-它目前仅把一台 Gemini 2 录到 `scene`，不等于上面的标准 `lerobot-record`，也不能把
-`--teleop.type=gamepad` 加到上述命令。手柄实机控制还需先完成
-[手柄遥操作说明](gamepad-teleoperation.md)的现场门禁。若需要两台相机与手柄同时录制，
-还需扩展该记录入口并验证两路时间戳和数据字段；在此之前不要把单视角手柄数据与
-双视角 ACT 配置混用。
+现有 `scripts/gamepad.sh` 是项目自己的 LeRobotDataset 记录入口，使用 Windows 手柄桥，
+不等于上面的标准 `lerobot-record`，也不能把 `--teleop.type=gamepad` 加到上述命令。
+默认实机入口仍只将一台 Gemini 2 录到 `scene`；手柄实机控制还需先完成
+[手柄遥操作说明](gamepad-teleoperation.md)的现场门禁。
+
+现在可用 `--backend mock --camera synthetic-dual` 离线检查手柄记录的数据契约：
+两路合成 RGB 分别写入 `observation.images.scene` 和 `observation.images.wrist`；
+写帧前逐路检查主机时间、帧号和时间差，侧录文件保留测得的主机时间差。
+这只验证软件路径，不代表两台 Orbbec 的同步、编码吞吐或实录示教通过。
+实际双相机手柄录制入口仍待现场接入与验证；此前不要把单视角手柄数据与双视角 ACT 配置混用。
 
 ## 7. 现场仍需验证的内容
 

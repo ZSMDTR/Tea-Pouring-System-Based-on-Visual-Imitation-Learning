@@ -82,6 +82,12 @@ WSL 终端启动时会打印数据完整目录，默认在 `data/gamepad/mock-�
 - `recording/manifest.json`：synthetic 标志、单位和时间戳说明；`physical_task_verified` 始终为 false。
 - 最近一次会话报告：`artifacts/gamepad-session.json`。
 
+软件双视角检查可在模拟后端改用 `--camera synthetic-dual`。该模式需要同样的手柄输入桥和
+LeRobot 训练环境，保存 `scene`、`wrist` 两路合成视频，并在写帧前检查两路主机时间戳、
+帧号和可配置的 `--max-camera-skew-ms`（默认 50 ms）。记录中的时间差不是相机硬件同步
+证明。实机入口仍限定单台 Gemini 2；真实双相机示教继续按
+[双相机录制说明](dual-camera-recording.md)的 Arm102 路线进行。
+
 动作只在后端报告目标发送成功后保存，记录最终提交的目标；驱动发生二次裁剪会报错停止。
 失败示范保存了标签，**训练时仍须显式筛选 success；当前脚本没有自动筛选训练数据的功能**。
 模拟后端和自动 `--synthetic` 输入的示范不能作为真实抓壶数据。
