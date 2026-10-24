@@ -18,8 +18,9 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
   未枚举前的资料推断。2026-10-23 已将该适配器附加到 WSL，`gs_usb` 自动创建
   `can0`。用户确认机械臂已固定、接好 CAN/电源并上电后，已把 `can0` 配置为
   1 Mbps；`scripts/control_linux.sh doctor can0` 通过。只读探测确认 1–7 号电机
-  全部在线且位置读数有效，结果在 `artifacts/motors-linux.json`。探测只发查询帧，
-  未使能、校零、写参数或运动。零位、参数回读、关节方向/限位和停止行为仍未验收。
+  全部在线且位置读数有效，结果在 `artifacts/motors-linux.json`。随后已保存 Arm102 与
+  B601-RS 的 LeRobot 校准；7 项 RS 参数调整并回读，154 项参数重连后复读通过。
+  参数断电持久化、关节方向/限位和停止行为仍待验证。
 - 同日已运行 `bash scripts/control_linux.sh gateway can0`，网关监听
   `ws://127.0.0.1:9002`；Windows 本机 TCP 端口检查通过，并已打开 MotorBridge Studio。
   这只证明软件入口可达，Studio 内连接、型号选择、扫描及任何实物调试仍需现场确认。
@@ -27,20 +28,20 @@ GitHub 仓库：`https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Im
 - 双相机 LeRobot 插件 `orbbec_gemini305`/`orbbec_gemini2` 对应 `wrist`/`scene`，
   配置见 `config/cameras.teapot-dual.json`，操作见 `docs/dual-camera-recording.md`。
   640×480 RGB 30 fps 是待相机列表确认的请求值，非实机验收结果。
-- 标准 `lerobot-record` 需真实 teleop。**Arm102 主臂是否具备仍未知**；文档中的
-  `rebot_102_leader` 命令仅在有主臂且已完成实物验收时使用。现有手柄记录入口只录
+- 标准 `lerobot-record` 需真实 teleop。已确认具备 **Arm102 主臂**，LeRobot 主从校准文件已保存；
+  首次跟随仍被起始姿态差检查拦截。现有手柄记录入口只录
   单台相机，不能与双相机数据字段或训练配置直接混用。
 - 本轮离线测试验证插件注册、双相机配置解析和原生 LeRobotDataset 双图像字段；
-  两台相机分别完成短采集，示教、真实数据录制和模型训练仍未执行。
+  两台相机分别完成短采集，并完成约 10 秒双机同时运行检查。真实示教数据录制和模型训练仍未执行。
 
 ## 2026-10-24 WSL → 原生 Linux 迁移交接（当前优先）
 
 - 当前可访问的工程是 WSL2，不是原生 Linux：`/home/zsmdtr/projects/rebot-tea`；内核为
   `6.18.33.2-microsoft-standard-WSL2`，Python 3.10.12。请勿把本次云/终端会话误认为
   已在原生 Linux 中完成安装或硬件验收。
-- GitHub `main` 与本地 `main` 当前都在 `7ec8527`，本地有已暂存、未暂存和未跟踪改动。
-  双相机、游戏手柄及 Arm102 交接文件均有未推送内容。迁移以完整项目备份为准，
-  不能只从 GitHub 克隆。详见 [原生 Linux 迁移包与步骤](native-linux-migration.md)。
+- 双相机、游戏手柄与 Arm102 交接内容已提交并推送到 GitHub `main`（`6abfd291`）。
+  项目包、数据、训练输出和校准备份仍保存在 Windows 共享目录；GitHub 不包含生成数据、
+  训练检查点或校准 JSON。恢复方法见 [原生 Linux 迁移包与步骤](native-linux-migration.md)。
 - 已确认示教主臂是 reBot Arm102。`leader.json` 与 `follower.json` 均已保存；本轮不重做校准。
   最近两次主从启动都被首次姿态差保护拦截，未通过第一条动作目标。最新截图读数为：
   shoulder_pan 主臂 -16.2° / 从臂 -2.1°，wrist_flex -6.3° / +0.1°，

@@ -12,14 +12,16 @@ C:\Users\24734\Documents\rebot-tea-handoff-20261024\
 
 里面应有：
 
-- `rebot-tea-project-20261024.tar`：整个项目工作树与 `.git`，包含暂存、未暂存和未跟踪文件；排除 `.venv*`、`data/`、`outputs/`，后两项分别备份。
+- `rebot-tea-project-20261024.tar`：整个项目工作树与 `.git`；排除 `.venv*`、`data/`、`outputs/`，后两项分别备份。
 - `rebot-tea-data-20261024.tar`：全部当前 `data/`，包含合成数据和两路相机短采集帧；没有真实示教数据。
 - `rebot-tea-outputs-20261024.tar`：全部 ACT 检查点。现有检查点来自合成数据，不是可抓壶策略。
 - `lerobot-calibration-20261024.tar`：Arm102 的 `leader.json` 和 B601-RS 的 `follower.json`。
 - `handoff-manifest-20261024.txt` 与 `SHA256SUMS`：来源提交、Git 状态、文件清单和校验值。
 
-项目包保留当前 `.git` 历史与 dirty 工作树。此快照中本地 `main` 与 GitHub `main` 同为
-`7ec8527`；新改动尚未提交或推送。解包后不要运行 `git clean`、`git reset` 或立即 `git pull`。
+双相机、游戏手柄及 Arm102 文档和适配改动已提交并推送到 GitHub `main`，提交为
+`6abfd291`。项目包包含当时完整的项目状态与 `.git`；生成数据、训练检查点及校准文件
+单独归档。现在也可以从 GitHub 克隆代码，再解开后三个归档。不要对归档目录运行
+`git clean` 或 `git reset`。
 
 ## 在原生 Linux 上恢复
 
@@ -43,7 +45,7 @@ cd ~/projects/rebot-tea
 git status --short --branch
 ```
 
-检查结果包含预期的 staged、unstaged 和 untracked 项；不要为了让状态变干净而丢弃它们。
+当前版本的项目包恢复后应显示工作区干净；若使用较早备份，按其 manifest 说明核对状态。
 之后可用 `code .` 打开项目。VS Code 应连接本机 Linux，并选择新建环境中的解释器。
 
 ## 原生 Linux 首次核对
