@@ -8,7 +8,7 @@ clone_pin() {
   local name="$1" url="$2" revision="$3" path="$ROOT/$1"
   if [[ ! -e "$path" ]]; then
     git clone --filter=blob:none --no-checkout "$url" "$path"
-    git -C "$path" checkout --detach "$revision"
+    GIT_LFS_SKIP_SMUDGE=1 git -C "$path" checkout --detach "$revision"
   fi
   [[ -d "$path/.git" ]] || { echo "Not a git checkout: $path" >&2; exit 1; }
   [[ "$(git -C "$path" rev-parse HEAD)" == "$revision" ]] || {

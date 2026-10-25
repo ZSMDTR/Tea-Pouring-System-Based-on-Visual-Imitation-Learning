@@ -24,7 +24,7 @@ if [[ ! -x "$UV" ]]; then
 fi
 
 for name in openpi openpi_fullsave; do
-  (cd "$ROOT/$name" && "$UV" sync --locked --no-dev --python "$PY311")
+  (cd "$ROOT/$name" && GIT_LFS_SKIP_SMUDGE=1 "$UV" sync --locked --no-dev --python "$PY311")
   "$ROOT/$name/.venv/bin/python" -c \
     'import importlib.metadata as m; print("jax", m.version("jax"), "orbax", m.version("orbax-checkpoint"), "torch", m.version("torch"))'
 done
