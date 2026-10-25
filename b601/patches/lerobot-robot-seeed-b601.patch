@@ -1,0 +1,19 @@
+diff --git a/lerobot_robot_seeed_b601/seeed_b601_follower.py b/lerobot_robot_seeed_b601/seeed_b601_follower.py
+index ab5579f..a4e9059 100644
+--- a/lerobot_robot_seeed_b601/seeed_b601_follower.py
++++ b/lerobot_robot_seeed_b601/seeed_b601_follower.py
+@@ -119,7 +119,13 @@ class SeeedB601FollowerBase(Robot):
+     def _cameras_ft(self) -> dict[str, tuple]:
+         """Camera features for observation space."""
+         return {
+-            cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3)
++            cam: (
++                getattr(self.config.cameras[cam], "output_height", None)
++                or self.config.cameras[cam].height,
++                getattr(self.config.cameras[cam], "output_width", None)
++                or self.config.cameras[cam].width,
++                3,
++            )
+             for cam in self.cameras
+         }
+ 

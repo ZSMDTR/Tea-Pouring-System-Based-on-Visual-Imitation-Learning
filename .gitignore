@@ -2,7 +2,7 @@
 .venv-control-win/
 .venv-training/
 .venv-kinematics/
-vendor/
+/vendor/
 artifacts/
 fixtures/generated/
 __pycache__/
@@ -14,7 +14,7 @@ dist/
 .vscode/browse.vc*.db*
 .vscode-cache/
 Log/
-data/
+/data/
 outputs/
 models/
 .env

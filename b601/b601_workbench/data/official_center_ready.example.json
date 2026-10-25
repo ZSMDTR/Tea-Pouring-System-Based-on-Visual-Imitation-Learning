@@ -1,0 +1,40 @@
+{
+  "id": "official_center_ready",
+  "label": "官方居中待命位",
+  "source": {
+    "url": "https://github.com/Seeed-Projects/reBot-DevArm-Grasp/blob/main/config/default.yaml",
+    "field": "robot.ready_pose",
+    "tcp_frame": "gripper_end",
+    "xyz_m": [
+      0.3,
+      0.0,
+      0.3
+    ],
+    "rpy_rad": [
+      0.0,
+      0.7,
+      0.0
+    ],
+    "solver": "Local official B601-RS SDK solve_ik, zero seed; FK checked offline"
+  },
+  "coordinate_system": "motor_degrees",
+  "motor_degrees": {
+    "shoulder_pan": 0.0,
+    "shoulder_lift": 56.14315983290697,
+    "elbow_flex": 75.93597495718991,
+    "wrist_flex": -59.899860781440395,
+    "wrist_yaw": 0.0,
+    "wrist_roll": 0.0
+  },
+  "gripper": "hold_measured_position",
+  "urdf_sha256": "",
+  "robot_id": "follower1",
+  "calibration_sha256": "",
+  "move_hz": 50,
+  "max_joint_speed_deg_s": 20.0,
+  "min_duration_s": 3.0,
+  "settle_timeout_s": 8.0,
+  "tolerance_deg": 3.0,
+  "stable_motion_deg": 1.0,
+  "stable_duration_s": 0.4
+}

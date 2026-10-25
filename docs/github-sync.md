@@ -2,7 +2,7 @@
 
 目标：[Tea-Pouring-System-Based-on-Visual-Imitation-Learning](https://github.com/ZSMDTR/Tea-Pouring-System-Based-on-Visual-Imitation-Learning)。
 
-仓库保持私有，默认分支main；Linux项目位于 /home/zsmdtr/projects/rebot-tea。
+仓库当前为公开仓库，默认分支 main。下文 2026-10-14 至 2026-10-15 的路径与操作记录对应当时的 WSL 项目。
 本次接续远端已有的初始README提交，不强制推送或重建远端历史。
 
 ## 上传内容
@@ -78,3 +78,9 @@ $rebotRepo = "\\wsl.localhost\Ubuntu-22.04\home\zsmdtr\projects\rebot-tea"
 `ls-remote --heads origin main`，确认远端与本地均为该完整提交哈希，工作区干净。
 核验时刻：2026-10-15 13:29:00 UTC。没有强推或更改仓库可见性。
 此后补充的发布记录仅更新文档，并继续按普通提交/推送保存。
+
+## 2026-10-25 原生 Linux B601 工作台
+
+本次同步新增 [`b601/`](../b601/README.md)，保留此前 WSL 工程的目录与历史。公开内容包括工作台源码、配置模板、固定的上游版本、B601 补丁、环境重建脚本和测试。真实数据、模型权重、标定文件、设备序列号、本机数据库及运行状态不随仓库发布。
+
+迁移后的本机工作台已完成三个 Python 环境重建、双相机预览、离线模型加载和 98 项工作台测试。未进行机械臂运动、数据采集或 Replay 实机验收。公开包的上游补丁已在对应固定提交上验证可应用；配置模板需要在新机器上填入实际设备和标定信息。

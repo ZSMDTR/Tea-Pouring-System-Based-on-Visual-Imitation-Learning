@@ -1,0 +1,196 @@
+diff --git a/src/lerobot/cameras/orbbec/camera_orbbec.py b/src/lerobot/cameras/orbbec/camera_orbbec.py
+index d5f85fe..f4989db 100644
+--- a/src/lerobot/cameras/orbbec/camera_orbbec.py
++++ b/src/lerobot/cameras/orbbec/camera_orbbec.py
+@@ -884,11 +884,139 @@ class OrbbecColorCamera(OrbbecBaseCamera):
+ 
+         out = self._postprocess_image(img, color_mode)
+ 
+-        # 系统要求：输出尺寸必须与 json 中配置一致（H/W/3）
+-        if target_h > 0 and target_w > 0 and (
+-            out.ndim != 3 or out.shape[0] != target_h or out.shape[1] != target_w
++        # --------------------------------------------------------
++        # Optional camera-level crop + resize.
++        #
++        # IMPORTANT:
++        # This happens INSIDE OrbbecColorCamera, before the image
++        # is returned to LeRobot.
++        #
++        # Therefore lerobot-record and online inference see the
++        # same processed image when they use the same camera
++        # configuration.
++        # --------------------------------------------------------
++
++        output_w = getattr(
++            self.config,
++            "output_width",
++            None,
++        )
++        output_h = getattr(
++            self.config,
++            "output_height",
++            None,
++        )
++
++        crop_x0 = getattr(
++            self.config,
++            "crop_x0",
++            None,
++        )
++        crop_x1 = getattr(
++            self.config,
++            "crop_x1",
++            None,
++        )
++
++        # --------------------------------------------------------
++        # Validate output resolution configuration.
++        # --------------------------------------------------------
++
++        if (output_w is None) != (output_h is None):
++            raise ValueError(
++                "output_width and output_height must either "
++                "both be set or both be None."
++            )
++
++        if output_w is not None:
++            output_w = int(output_w)
++            output_h = int(output_h)
++
++            if output_w <= 0 or output_h <= 0:
++                raise ValueError(
++                    "output_width/output_height must be > 0."
++                )
++
++        # --------------------------------------------------------
++        # Validate and apply horizontal crop.
++        # --------------------------------------------------------
++
++        if (crop_x0 is None) != (crop_x1 is None):
++            raise ValueError(
++                "crop_x0 and crop_x1 must either "
++                "both be set or both be None."
++            )
++
++        if crop_x0 is not None:
++            crop_x0 = int(crop_x0)
++            crop_x1 = int(crop_x1)
++
++            if out.ndim != 3:
++                raise RuntimeError(
++                    "Expected color image with shape HxWxC, "
++                    f"got {out.shape}"
++                )
++
++            native_h, native_w = out.shape[:2]
++
++            if not (
++                0 <= crop_x0
++                < crop_x1
++                <= native_w
++            ):
++                raise ValueError(
++                    "Invalid horizontal crop "
++                    f"x[{crop_x0}:{crop_x1}] "
++                    f"for image width {native_w}"
++                )
++
++            out = out[:, crop_x0:crop_x1]
++
++        # --------------------------------------------------------
++        # Decide the image size exposed to LeRobot.
++        #
++        # New behavior:
++        #     output_width/output_height, when explicitly set.
++        #
++        # Backward-compatible behavior:
++        #     config width/height.
++        # --------------------------------------------------------
++
++        if output_w is not None:
++            final_w = output_w
++            final_h = output_h
++        else:
++            final_w = target_w
++            final_h = target_h
++
++        # --------------------------------------------------------
++        # Resize only after crop.
++        # --------------------------------------------------------
++
++        if final_h > 0 and final_w > 0 and (
++            out.ndim != 3
++            or out.shape[0] != final_h
++            or out.shape[1] != final_w
+         ):
+-            out = cv2.resize(out, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
++            if getattr(self.config, "resize_mode", "stretch") == "letterbox":
++                height, width = out.shape[:2]
++                scale = min(final_w / width, final_h / height)
++                resized_w = max(1, min(final_w, round(width * scale)))
++                resized_h = max(1, min(final_h, round(height * scale)))
++                out = cv2.resize(out, (resized_w, resized_h), interpolation=cv2.INTER_LINEAR)
++                top = (final_h - resized_h) // 2
++                left = (final_w - resized_w) // 2
++                out = cv2.copyMakeBorder(
++                    out, top, final_h - resized_h - top,
++                    left, final_w - resized_w - left,
++                    cv2.BORDER_CONSTANT, value=(0, 0, 0),
++                )
++            else:
++                out = cv2.resize(
++                    out,
++                    (final_w, final_h),
++                    interpolation=cv2.INTER_LINEAR,
++                )
+ 
+         if out.ndim == 2:
+             out = cv2.cvtColor(out, cv2.COLOR_GRAY2BGR)
+diff --git a/src/lerobot/cameras/orbbec/configuration_orbbec.py b/src/lerobot/cameras/orbbec/configuration_orbbec.py
+index 596cac3..8c115e5 100644
+--- a/src/lerobot/cameras/orbbec/configuration_orbbec.py
++++ b/src/lerobot/cameras/orbbec/configuration_orbbec.py
+@@ -50,7 +50,42 @@ class OrbbecColorCameraConfig(CameraConfig):
+ 
+         _validate_rotation(self.rotation)
+         _validate_stream_shape(self.fps, self.width, self.height)
+-
++        if self.resize_mode not in ("stretch", "letterbox"):
++            raise ValueError("resize_mode must be 'stretch' or 'letterbox'.")
++
++
++
++    # --------------------------------------------------------
++    # Optional image-output preprocessing.
++    #
++    # width / height:
++    #     Native Orbbec hardware capture resolution.
++    #
++    # output_width / output_height:
++    #     Image size returned by Camera.read()/async_read().
++    #
++    # crop_x0 / crop_x1:
++    #     Horizontal crop applied to the native image BEFORE
++    #     output resize.
++    #
++    # Example used by B601 + Gemini 2:
++    #
++    #     native: 1280x720
++    #     crop:   x[250:1210] -> 960x720
++    #     output: 640x480
++    #
++    # If these options are None, legacy behavior is preserved.
++    # --------------------------------------------------------
++
++    output_width: int | None = None
++    output_height: int | None = None
++
++    # Keep legacy scaling unless explicitly asked to preserve aspect ratio.
++    # letterbox fits the complete image into the output and pads with black.
++    resize_mode: str = "stretch"
++
++    crop_x0: int | None = None
++    crop_x1: int | None = None
+ 
+ @CameraConfig.register_subclass("orbbec_depth")
+ @dataclass(kw_only=True)

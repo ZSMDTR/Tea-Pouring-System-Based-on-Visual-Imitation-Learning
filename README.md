@@ -1,5 +1,9 @@
 # reBot Tea：B601-RS 视觉抓取项目
 
+## 原生 Linux B601 工作台
+
+从 2026-10-25 起，原生 Linux 上的 B601 采集、Replay、训练与推理工作台源码位于 [`b601/`](b601/README.md)。该目录提供配置模板、依赖重建方式及定制上游补丁；真实数据集、模型权重、标定文件和本机运行状态保存在本地。下面的内容记录此前的 WSL 开发流程。
+
 日常开发请打开仓库根目录的 `reBot-B601-RS.code-workspace`。`reBot-Codex-WSL` 是指向
 同一仓库的旧 VS Code/WSL 快捷入口，并不是另一个项目。目录关系和文件用途见
 [项目入口与文件导航](docs/project-navigation.md)。

@@ -1,0 +1,28 @@
+{
+  "robot_id": "follower1",
+  "leader_id": "rebot_arm_102_leader",
+  "leader_port": "",
+  "can_port": "can0",
+  "fps": 30,
+  "camera": {
+    "serial_number_or_name": "",
+    "width": 1280,
+    "height": 800,
+    "fps": 30,
+    "warmup_s": 1,
+    "output_width": 640,
+    "output_height": 480,
+    "resize_mode": "letterbox"
+  },
+  "secondary_camera": {
+    "serial_number_or_name": "",
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "output_width": 640,
+    "output_height": 480,
+    "resize_mode": "letterbox",
+    "warmup_s": 1
+  },
+  "secondary_enabled": true
+}

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Seeed-Projects/reBotArm_control_py",
+  "revision": "6415d43130d1",
+  "sha256": {
+    "example/10_gravity_compensation_lock.py": "c50c672c9907f76c10f72d92233e9e30ecf7b97c80d6f4b925fc896fd268a5c0",
+    "reBotArm_control_py/controllers/gravity_compensation.py": "205301b801c3fa68a4ed95e1791940598fec725cac1b803ae5d7b96f03475fc4",
+    "config/rebotarm_rs.yaml": "ff8d04f47da57906edf61510a512bbb40c9d0309927af4acf7081568392c8def"
+  },
+  "extracted_methods": "Exact method text; imports and class wrapper replaced, no hardware entry point imported."
+}

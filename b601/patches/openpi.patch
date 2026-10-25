@@ -1,0 +1,714 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 5377e3d..907d787 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -23,7 +23,7 @@ dependencies = [
+     "numpydantic>=1.6.6",
+     "opencv-python>=4.10.0.84",
+     "openpi-client",
+-    "orbax-checkpoint==0.11.13",
++    "orbax-checkpoint==0.11.23",
+     "pillow>=11.0.0",
+     "sentencepiece>=0.2.0",
+     "torch==2.7.1",
+diff --git a/src/openpi/models/model.py b/src/openpi/models/model.py
+index 29618b4..4011a2a 100644
+--- a/src/openpi/models/model.py
++++ b/src/openpi/models/model.py
+@@ -312,7 +312,16 @@ def restore_params(
+ 
+     with ocp.PyTreeCheckpointer() as ckptr:
+         metadata = ckptr.metadata(params_path)
+-        item = {"params": metadata["params"]}
++
++        # Orbax >= 0.11.24 returns StepMetadata from Checkpointer.metadata().
++        # Older OpenPI-compatible Orbax versions returned the PyTree metadata
++        # directly. Support both forms.
++        item_metadata = (
++            metadata.item_metadata
++            if hasattr(metadata, "item_metadata")
++            else metadata
++        )
++        item = {"params": item_metadata["params"]}
+ 
+         params = ckptr.restore(
+             params_path,
+diff --git a/src/openpi/training/checkpoints.py b/src/openpi/training/checkpoints.py
+index f32a831..5c04cfd 100644
+--- a/src/openpi/training/checkpoints.py
++++ b/src/openpi/training/checkpoints.py
+@@ -2,14 +2,20 @@ from __future__ import annotations
+ 
+ import asyncio
+ import concurrent.futures as futures
++import ctypes
++import ctypes.util
+ import dataclasses
++import gc
+ import logging
++import time
+ from typing import Protocol
+ 
+ from etils import epath
+ import jax
+ import orbax.checkpoint as ocp
+ import orbax.checkpoint.future as future
++from orbax.checkpoint._src.handlers import composite_checkpoint_handler as _orbax_composite
++from orbax.checkpoint._src.serialization import replica_slices as _orbax_replica_slices
+ 
+ from openpi.shared import array_typing as at
+ import openpi.shared.normalize as _normalize
+@@ -17,6 +23,265 @@ import openpi.training.data_loader as _data_loader
+ import openpi.training.utils as training_utils
+ 
+ 
++
++_LIBC_NAME = ctypes.util.find_library("c")
++_LIBC = ctypes.CDLL(_LIBC_NAME) if _LIBC_NAME else None
++
++if _LIBC is not None and hasattr(_LIBC, "malloc_trim"):
++    _LIBC.malloc_trim.argtypes = [ctypes.c_size_t]
++    _LIBC.malloc_trim.restype = ctypes.c_int
++
++
++def _read_kib_file(path):
++    values = {}
++    with open(path) as f:
++        for line in f:
++            if ":" not in line:
++                continue
++            key, value = line.split(":", 1)
++            fields = value.strip().split()
++            if fields and fields[0].isdigit():
++                values[key] = int(fields[0])
++    return values
++
++
++def _log_checkpoint_memory(label):
++    status = _read_kib_file("/proc/self/status")
++    meminfo = _read_kib_file("/proc/meminfo")
++
++    vmrss = status.get("VmRSS", 0) / 1024**2
++    anon = status.get("RssAnon", 0) / 1024**2
++    rss_file = status.get("RssFile", 0) / 1024**2
++    shmem = status.get("RssShmem", 0) / 1024**2
++
++    total = meminfo.get("MemTotal", 0)
++    avail = meminfo.get("MemAvailable", 0)
++    system_used = (total - avail) / 1024**2
++
++    swap_total = meminfo.get("SwapTotal", 0)
++    swap_free = meminfo.get("SwapFree", 0)
++    swap_used = (swap_total - swap_free) / 1024**2
++
++    logging.info(
++        "[MEMPROBE] %s | "
++        "VmRSS=%.3fGiB RssAnon=%.3fGiB RssFile=%.3fGiB "
++        "RssShmem=%.3fGiB system_used=%.3fGiB swap_used=%.3fGiB",
++        label,
++        vmrss,
++        anon,
++        rss_file,
++        shmem,
++        system_used,
++        swap_used,
++    )
++
++
++def _malloc_trim():
++    if _LIBC is None or not hasattr(_LIBC, "malloc_trim"):
++        return None
++    return int(_LIBC.malloc_trim(0))
++
++
++
++def _wait_checkpoint_futures(futures):
++    """Waits for checkpoint futures in a separate Python scope.
++
++    Keeping the loop variable inside this helper is intentional: after this
++    function returns there must be no caller-local reference to the final
++    ChainedFuture.
++    """
++    for checkpoint_future in futures:
++        checkpoint_future.result()
++
++
++async def _serial_composite_async_save(self, directory, args):
++    """Serial version of Orbax 0.11.23 CompositeCheckpointHandler.async_save.
++
++    This intentionally preserves Orbax's existing temporary-directory,
++    metadata, finalize, and atomic-rename machinery.
++
++    Only the scheduling changes:
++
++        params
++          -> wait for all commit futures
++        train_state
++          -> wait for all commit futures
++        assets
++          -> wait for completion
++
++    This is inspired by Orbax Partial Saving: disjoint checkpoint pieces are
++    fully committed one at a time before starting the next large piece.
++    """
++    start_time = time.time()
++
++    self._current_temporary_paths = self._get_item_temporary_paths(
++        directory, args
++    )
++
++    # Directory creation must be complete before the first item starts.
++    if self._async_options.create_directories_asynchronously:
++        directory_future = _orbax_composite.atomicity.create_all_async(
++            list(self._current_temporary_paths.values()),
++            completion_signals=_orbax_composite._DIRECTORY_CREATION_SIGNALS,
++            multiprocessing_options=self._multiprocessing_options,
++        )
++        directory_future.result()
++    else:
++        future.CommitFutureAwaitingContractedSignals(
++            _orbax_composite.atomicity.create_all(
++                list(self._current_temporary_paths.values()),
++                multiprocessing_options=self._multiprocessing_options,
++            )
++        ).result()
++
++    # Explicit order. The two large items must NOT overlap.
++    preferred_order = ("params", "train_state", "assets")
++    item_order = [
++        name
++        for name in preferred_order
++        if name in self._current_temporary_paths
++    ]
++    item_order.extend(
++        name
++        for name in self._current_temporary_paths
++        if name not in item_order
++    )
++
++    logging.info(
++        "[SERIAL_CKPT] item order: %s",
++        " -> ".join(item_order),
++    )
++
++    for item_name in item_order:
++        item_start = time.time()
++
++        item_directory = self._current_temporary_paths[item_name]
++        arg = args[item_name]
++
++        _orbax_composite._maybe_raise_reserved_item_error(item_name)
++        handler = self._get_or_set_handler(item_name, arg)
++
++        _log_checkpoint_memory(f"BEFORE {item_name}")
++
++        logging.info(
++            "[SERIAL_CKPT] START item=%s",
++            item_name,
++        )
++
++        if isinstance(handler, _orbax_composite.AsyncCheckpointHandler):
++            # IMPORTANT:
++            # Awaiting async_save() alone is not sufficient. It returns commit
++            # futures whose writes may still be in progress.
++            item_futures = await handler.async_save(
++                item_directory.get(),
++                args=arg,
++            )
++
++            flat_futures = (
++                jax.tree.flatten(item_futures)[0]
++                if item_futures is not None
++                else []
++            )
++
++            logging.info(
++                "[SERIAL_CKPT] WAIT item=%s futures=%d",
++                item_name,
++                len(flat_futures),
++            )
++
++            # This is the actual serialization barrier.
++            # Do not start the next checkpoint item until every write/commit
++            # belonging to this item is complete.
++            _wait_checkpoint_futures(flat_futures)
++
++            # Important: release every Python reference to ChainedFuture before
++            # gc.collect()/malloc_trim(). ChainedFuture itself retains its
++            # internal futures even after result() has completed.
++            del flat_futures
++            del item_futures
++
++        else:
++            # Preserve Orbax's original blocking-handler behavior.
++            future.CommitFutureAwaitingContractedSignals(
++                asyncio.to_thread(
++                    handler.save,
++                    item_directory.get(),
++                    args=arg,
++                )
++            ).result()
++
++        # Measure host-memory lifetime after the item's writes have really
++        # committed, but before starting the next large PyTree.
++        _log_checkpoint_memory(f"AFTER_COMMIT {item_name}")
++        if item_name == "params":
++            _orbax_replica_slices._openpi_log_host_buffer_registry(
++                "AFTER_COMMIT params"
++            )
++
++        collected = gc.collect()
++        logging.info(
++            "[MEMPROBE] gc.collect item=%s collected=%d",
++            item_name,
++            collected,
++        )
++        _log_checkpoint_memory(f"AFTER_GC {item_name}")
++        if item_name == "params":
++            _orbax_replica_slices._openpi_log_host_buffer_registry(
++                "AFTER_GC params"
++            )
++
++        # For the 12.5-GiB EMA params item, explicitly ask glibc to return
++        # unused arenas/pages to the kernel and give the system 10 seconds
++        # before train_state starts.
++        if item_name == "params":
++            trim_result = _malloc_trim()
++            logging.info(
++                "[MEMPROBE] malloc_trim item=params returned=%s",
++                trim_result,
++            )
++            _log_checkpoint_memory("AFTER_MALLOC_TRIM params")
++            _orbax_replica_slices._openpi_log_host_buffer_registry(
++                "AFTER_MALLOC_TRIM params"
++            )
++
++            logging.info(
++                "[MEMPROBE] sleeping 10s before train_state"
++            )
++            time.sleep(10)
++            _log_checkpoint_memory("AFTER_10S params")
++            _orbax_replica_slices._openpi_log_host_buffer_registry(
++                "AFTER_10S params"
++            )
++
++            raise RuntimeError(
++                "V7.5 HOSTBUF PARAMS-ONLY PROBE COMPLETE -- intentional stop"
++            )
++
++        logging.info(
++            "[SERIAL_CKPT] DONE item=%s elapsed=%.3fs",
++            item_name,
++            time.time() - item_start,
++        )
++
++    logging.info(
++        "[SERIAL_CKPT] all items committed in %.3fs; "
++        "returning to Orbax for normal Composite finalize",
++        time.time() - start_time,
++    )
++
++    # Every item's commit futures have already completed.
++    # Returning no outstanding futures makes the outer Checkpointer proceed
++    # directly to Orbax's existing metadata/finalize/atomic-rename path.
++    return []
++
++
++# Compatibility patch for the OpenPI-pinned Orbax 0.11.23 implementation.
++# Restore behavior is untouched; only Composite save scheduling is changed.
++_orbax_composite.CompositeCheckpointHandler.async_save = (
++    _serial_composite_async_save
++)
++
++
+ def initialize_checkpoint_dir(
+     checkpoint_dir: epath.Path | str, *, keep_period: int | None, overwrite: bool, resume: bool
+ ) -> tuple[ocp.CheckpointManager, bool]:
+@@ -41,13 +306,22 @@ def initialize_checkpoint_dir(
+         checkpoint_dir,
+         item_handlers={
+             "assets": CallbackHandler(),
+-            "train_state": ocp.PyTreeCheckpointHandler(),
+-            "params": ocp.PyTreeCheckpointHandler(),
++            "train_state": ocp.PyTreeCheckpointHandler(
++            save_concurrent_gb=8,
++            save_device_host_concurrent_gb=2,
++            enable_pinned_host_transfer=False,
++        ),
++            "params": ocp.PyTreeCheckpointHandler(
++            save_concurrent_gb=8,
++            save_device_host_concurrent_gb=2,
++            enable_pinned_host_transfer=False,
++        ),
+         },
+         options=ocp.CheckpointManagerOptions(
+             max_to_keep=1,
+             keep_period=keep_period,
+             create=False,
++            enable_async_checkpointing=False,
+             async_options=ocp.AsyncOptions(timeout_secs=7200),
+         ),
+     )
+diff --git a/src/openpi/training/config.py b/src/openpi/training/config.py
+index 4ca47e1..f653335 100644
+--- a/src/openpi/training/config.py
++++ b/src/openpi/training/config.py
+@@ -18,6 +18,7 @@ import openpi.models.pi0_config as pi0_config
+ import openpi.models.pi0_fast as pi0_fast
+ import openpi.models.tokenizer as _tokenizer
+ import openpi.policies.aloha_policy as aloha_policy
++import openpi.policies.b601_policy as b601_policy
+ import openpi.policies.droid_policy as droid_policy
+ import openpi.policies.libero_policy as libero_policy
+ import openpi.shared.download as _download
+@@ -278,6 +279,93 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
+         )
+ 
+ 
++@dataclasses.dataclass(frozen=True)
++class LeRobotB601DataConfig(DataConfigFactory):
++    """OpenPI data configuration for the Seeed reBot B601-RS."""
++
++    # Convert the six arm joints to state-relative actions.
++    # The seventh dimension (gripper) remains absolute.
++    use_delta_joint_actions: bool = True
++
++    # Optional fallback prompt.
++    default_prompt: str | None = None
++
++    # The raw LeRobot dataset stores actions under "action".
++    action_sequence_keys: Sequence[str] = ("action",)
++
++    @override
++    def create(
++        self,
++        assets_dirs: pathlib.Path,
++        model_config: _model.BaseModelConfig,
++    ) -> DataConfig:
++        # Dataset-only key remapping.
++        #
++        # observation.images.orbbec_color
++        #     -> wrist_rgb
++        #
++        # observation.state
++        #     -> state
++        #
++        # action
++        #     -> actions
++        #
++        # LeRobot task
++        #     -> prompt
++        repack_transform = _transforms.Group(
++            inputs=[
++                _transforms.RepackTransform(
++                    {
++                        "wrist_rgb": "observation.images.wrist_rgb",
++                        "state": "observation.state",
++                        "actions": "action",
++                        "prompt": "prompt",
++                    }
++                )
++            ]
++        )
++
++        # Robot-specific transforms shared by training and inference.
++        data_transforms = _transforms.Group(
++            inputs=[
++                b601_policy.B601Inputs(
++                    model_type=model_config.model_type,
++                )
++            ],
++            outputs=[
++                b601_policy.B601Outputs(),
++            ],
++        )
++
++        # Six arm joints are relative to the current policy-space state.
++        # Gripper stays absolute.
++        if self.use_delta_joint_actions:
++            delta_action_mask = _transforms.make_bool_mask(6, -1)
++
++            data_transforms = data_transforms.push(
++                inputs=[
++                    _transforms.DeltaActions(delta_action_mask),
++                ],
++                outputs=[
++                    _transforms.AbsoluteActions(delta_action_mask),
++                ],
++            )
++
++        # π0.5-specific transforms:
++        # resize -> tokenize prompt/state -> pad 7D to 32D.
++        model_transforms = ModelTransformFactory(
++            default_prompt=self.default_prompt
++        )(model_config)
++
++        return dataclasses.replace(
++            self.create_base_config(assets_dirs, model_config),
++            repack_transforms=repack_transform,
++            data_transforms=data_transforms,
++            model_transforms=model_transforms,
++            action_sequence_keys=self.action_sequence_keys,
++        )
++
++
+ @dataclasses.dataclass(frozen=True)
+ class LeRobotLiberoDataConfig(DataConfigFactory):
+     """
+@@ -641,6 +729,30 @@ _CONFIGS = [
+         ),
+     ),
+     #
++    #
++    # B601-RS π0.5 fine-tuning.
++    #
++    TrainConfig(
++        name="pi05_b601",
++        model=pi0_config.Pi0Config(
++            pi05=True,
++        ),
++        data=LeRobotB601DataConfig(
++            repo_id="local/b601_rs_red_screwdriver_orange_container_v2crop_20260901_openpi",
++            base_config=DataConfig(
++                prompt_from_task=True,
++            ),
++            use_delta_joint_actions=True,
++        ),
++        weight_loader=weight_loaders.CheckpointWeightLoader(
++            "gs://openpi-assets/checkpoints/pi05_base/params"
++        ),
++        num_train_steps=30_000,
++        # Keep the first B601 smoke tests single-process.
++        # This does not affect model semantics, only data-loading speed.
++        num_workers=0,
++    ),
++    #
+     # Fine-tuning Libero configs.
+     #
+     # These train configs define the hyperparameters for fine-tuning the base model on your own dataset.
+diff --git a/uv.lock b/uv.lock
+index d7c9e41..977292f 100644
+--- a/uv.lock
++++ b/uv.lock
+@@ -38,6 +38,15 @@ wheels = [
+     { url = "https://files.pythonhosted.org/packages/87/04/9d75e1d3bb4ab8ec67ff10919476ccdee06c098bcfcf3a352da5f985171d/absl_py-2.3.0-py3-none-any.whl", hash = "sha256:9824a48b654a306168f63e0d97714665f8490b8d89ec7bf2efc24bf67cf579b3", size = 135657, upload-time = "2025-05-27T09:15:48.742Z" },
+ ]
+ 
++[[package]]
++name = "aiofiles"
++version = "25.1.0"
++source = { registry = "https://pypi.org/simple" }
++sdist = { url = "https://files.pythonhosted.org/packages/41/c3/534eac40372d8ee36ef40df62ec129bee4fdb5ad9706e58a29be53b2c970/aiofiles-25.1.0.tar.gz", hash = "sha256:a8d728f0a29de45dc521f18f07297428d56992a742f0cd2701ba86e44d23d5b2", size = 46354, upload-time = "2025-10-09T20:51:04.358Z" }
++wheels = [
++    { url = "https://files.pythonhosted.org/packages/bc/8a/340a1555ae33d7354dbca4faa54948d76d89a27ceef032c8c3bc661d003e/aiofiles-25.1.0-py3-none-any.whl", hash = "sha256:abe311e527c862958650f9438e859c1fa7568a141b22abcd015e120e86a85695", size = 14668, upload-time = "2025-10-09T20:51:03.174Z" },
++]
++
+ [[package]]
+ name = "aiohappyeyeballs"
+ version = "2.6.1"
+@@ -156,8 +165,8 @@ name = "array-record"
+ version = "0.7.2"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "absl-py", marker = "sys_platform == 'linux'" },
+-    { name = "etils", extra = ["epath"], marker = "sys_platform == 'linux'" },
++    { name = "absl-py" },
++    { name = "etils", extra = ["epath"] },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/da/9e/df7e365bb7516b90709964bd7ca851ad03276a3b33331939bed5cb6d9377/array_record-0.7.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9426431053276e61c9c952393ff37c80825b4edc2fde32aee18b8dc0d653f19c", size = 2135376, upload-time = "2025-04-29T15:26:34.445Z" },
+@@ -790,10 +799,10 @@ resolution-markers = [
+     "python_full_version < '3.12' and sys_platform == 'emscripten'",
+ ]
+ dependencies = [
+-    { name = "absl-py", marker = "python_full_version < '3.13'" },
+-    { name = "attrs", marker = "python_full_version < '3.13'" },
+-    { name = "numpy", marker = "python_full_version < '3.13'" },
+-    { name = "wrapt", marker = "python_full_version < '3.13'" },
++    { name = "absl-py" },
++    { name = "attrs" },
++    { name = "numpy" },
++    { name = "wrapt" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/a6/83/ce29720ccf934c6cfa9b9c95ebbe96558386e66886626066632b5e44afed/dm_tree-0.1.9.tar.gz", hash = "sha256:a4c7db3d3935a5a2d5e4b383fc26c6b0cd6f78c6d4605d3e7b518800ecd5342b", size = 35623, upload-time = "2025-01-30T20:45:37.13Z" }
+ wheels = [
+@@ -2741,7 +2750,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and sys_platform == 'emscripten'",
+ ]
+ dependencies = [
+-    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
++    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/99/93/a201a12d3ec1caa8c6ac34c1c2f9eeb696b886f0c36ff23c638b46603bd0/nvidia_cudnn_cu12-9.5.1.17-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:9fd4584468533c61873e5fda8ca41bac3a38bcb2d12350830c69b0a96a7e4def", size = 570523509, upload-time = "2024-10-25T19:53:03.148Z" },
+@@ -2762,7 +2771,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+ ]
+ dependencies = [
+-    { name = "nvidia-cublas-cu12", version = "12.9.0.13", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
++    { name = "nvidia-cublas-cu12", version = "12.9.0.13", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/75/b9/0d76c9c94b2c078ef20a6100b532335d3c2416ae0d3b2e68c36170912a64/nvidia_cudnn_cu12-9.10.1.4-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:5b68945b89195c9eee91d812c375e9db784265b95635d173d695bb85e920e0d3", size = 705022940, upload-time = "2025-05-16T23:22:48.876Z" },
+@@ -2784,7 +2793,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and sys_platform == 'emscripten'",
+ ]
+ dependencies = [
+-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
++    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/1f/37/c50d2b2f2c07e146776389e3080f4faf70bcc4fa6e19d65bb54ca174ebc3/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d16079550df460376455cba121db6564089176d9bac9e4f360493ca4741b22a6", size = 200164144, upload-time = "2024-11-20T17:40:58.288Z" },
+@@ -2807,7 +2816,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+ ]
+ dependencies = [
+-    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
++    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/62/e7/707a484520d970fc958afc3a1051fbf98ea1b692bdd85b18c6a77e881f2f/nvidia_cufft_cu12-11.4.0.6-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4836f5a8fb3d94dc8d7daa8fcec8414a3ffed28ab588ce3bdacc319fdfd95f02", size = 200850753, upload-time = "2025-05-01T19:37:51.175Z" },
+@@ -2846,9 +2855,9 @@ resolution-markers = [
+     "python_full_version < '3.12' and sys_platform == 'emscripten'",
+ ]
+ dependencies = [
+-    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+-    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
++    { name = "nvidia-cublas-cu12", version = "12.6.4.1", source = { registry = "https://pypi.org/simple" } },
++    { name = "nvidia-cusparse-cu12", version = "12.5.4.2", source = { registry = "https://pypi.org/simple" } },
++    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/93/17/dbe1aa865e4fdc7b6d4d0dd308fdd5aaab60f939abfc0ea1954eac4fb113/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0ce237ef60acde1efc457335a2ddadfd7610b892d94efee7b776c64bb1cac9e0", size = 157833628, upload-time = "2024-10-01T17:05:05.591Z" },
+@@ -2871,9 +2880,9 @@ resolution-markers = [
+     "python_full_version < '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+ ]
+ dependencies = [
+-    { name = "nvidia-cublas-cu12", version = "12.9.0.13", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+-    { name = "nvidia-cusparse-cu12", version = "12.5.9.5", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
+-    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
++    { name = "nvidia-cublas-cu12", version = "12.9.0.13", source = { registry = "https://pypi.org/simple" } },
++    { name = "nvidia-cusparse-cu12", version = "12.5.9.5", source = { registry = "https://pypi.org/simple" } },
++    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/60/00/83e34680d78d4ea88010bbdd6fdeaf79b210087e355da57f329262456ec6/nvidia_cusolver_cu12-11.7.4.40-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:75e64d827e391a4e0c75832c7c35ca24fdcadcd048b3de18dcc639a783187a7f", size = 331520918, upload-time = "2025-05-01T19:40:01.834Z" },
+@@ -2895,7 +2904,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and sys_platform == 'emscripten'",
+ ]
+ dependencies = [
+-    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
++    { name = "nvidia-nvjitlink-cu12", version = "12.6.85", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/eb/eb/6681efd0aa7df96b4f8067b3ce7246833dd36830bb4cec8896182773db7d/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d25b62fb18751758fe3c93a4a08eff08effedfe4edf1c6bb5afd0890fe88f887", size = 216451147, upload-time = "2024-11-20T17:44:18.055Z" },
+@@ -2918,7 +2927,7 @@ resolution-markers = [
+     "python_full_version < '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+ ]
+ dependencies = [
+-    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or sys_platform == 'darwin'" },
++    { name = "nvidia-nvjitlink-cu12", version = "12.9.41", source = { registry = "https://pypi.org/simple" } },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/94/a8/527f641cf3094d5ab550f820c7cfa71d81f472523bb289e6962a6aa79b45/nvidia_cusparse_cu12-12.5.9.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:248d302dba92860b85bc81aa43b7ed5726f1d63466c73d55bf764945514ddd94", size = 366343938, upload-time = "2025-05-01T19:41:23.911Z" },
+@@ -3157,7 +3166,7 @@ requires-dist = [
+     { name = "numpydantic", specifier = ">=1.6.6" },
+     { name = "opencv-python", specifier = ">=4.10.0.84" },
+     { name = "openpi-client", editable = "packages/openpi-client" },
+-    { name = "orbax-checkpoint", specifier = "==0.11.13" },
++    { name = "orbax-checkpoint", specifier = "==0.11.23" },
+     { name = "pillow", specifier = ">=11.0.0" },
+     { name = "polars", specifier = ">=1.30.0" },
+     { name = "rich", specifier = ">=14.0.0" },
+@@ -3245,10 +3254,11 @@ wheels = [
+ 
+ [[package]]
+ name = "orbax-checkpoint"
+-version = "0.11.13"
++version = "0.11.23"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+     { name = "absl-py" },
++    { name = "aiofiles" },
+     { name = "etils", extra = ["epath", "epy"] },
+     { name = "humanize" },
+     { name = "jax" },
+@@ -3261,9 +3271,9 @@ dependencies = [
+     { name = "tensorstore" },
+     { name = "typing-extensions" },
+ ]
+-sdist = { url = "https://files.pythonhosted.org/packages/c3/cb/e122160888cb922caabfd67582d402e6202fc7383c64f2e05a81727cef6a/orbax_checkpoint-0.11.13.tar.gz", hash = "sha256:6ce6f4458d0755a7ae556d4da3b2e3a943d4a830aeec2f98881643f1997e11bc", size = 316151, upload-time = "2025-05-01T15:51:22.016Z" }
++sdist = { url = "https://files.pythonhosted.org/packages/25/07/f533bb7a47de27c8666b00ebaeba597b1a725d6734c6f0e22d2e074a5d47/orbax_checkpoint-0.11.23.tar.gz", hash = "sha256:f59491f7c8c671cf255df7f467389e5317baba637ff9d57b2b4af83fe8e8526f", size = 366861, upload-time = "2025-08-18T20:13:19.555Z" }
+ wheels = [
+-    { url = "https://files.pythonhosted.org/packages/27/57/700709ca012b8595230dd2a004fbe284a57e6838f966d58c956d4529a2db/orbax_checkpoint-0.11.13-py3-none-any.whl", hash = "sha256:096eb6f475857d7aa73235989cdfe5d34c425628d24be881686dfbc3b566f495", size = 442700, upload-time = "2025-05-01T15:51:20.662Z" },
++    { url = "https://files.pythonhosted.org/packages/0e/fb/1f909c74aca659eb001f7416cc8a856b633d23ba84b2a88aa0890c14983b/orbax_checkpoint-0.11.23-py3-none-any.whl", hash = "sha256:db91516f574428cd6734042bbf380cf095fc297cefe00ec55601c68a3ecb60b5", size = 523142, upload-time = "2025-08-18T20:13:18.062Z" },
+ ]
+ 
+ [[package]]
+@@ -3339,7 +3349,7 @@ name = "pexpect"
+ version = "4.9.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "ptyprocess", marker = "sys_platform != 'emscripten'" },
++    { name = "ptyprocess" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
+ wheels = [
+@@ -3870,10 +3880,10 @@ name = "pyobjc-framework-applicationservices"
+ version = "11.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-coretext", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
++    { name = "pyobjc-core" },
++    { name = "pyobjc-framework-cocoa" },
++    { name = "pyobjc-framework-coretext" },
++    { name = "pyobjc-framework-quartz" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/ba/fb/4e42573b0d3baa3fa18ec53614cf979f951313f1451e8f2e17df9429da1f/pyobjc_framework_applicationservices-11.0.tar.gz", hash = "sha256:d6ea18dfc7d5626a3ecf4ac72d510405c0d3a648ca38cae8db841acdebecf4d2", size = 224334, upload-time = "2025-01-14T19:02:26.828Z" }
+ wheels = [
+@@ -3888,7 +3898,7 @@ name = "pyobjc-framework-cocoa"
+ version = "11.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
++    { name = "pyobjc-core" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/c5/32/53809096ad5fc3e7a2c5ddea642590a5f2cb5b81d0ad6ea67fdb2263d9f9/pyobjc_framework_cocoa-11.0.tar.gz", hash = "sha256:00346a8cb81ad7b017b32ff7bf596000f9faa905807b1bd234644ebd47f692c5", size = 6173848, upload-time = "2025-01-14T19:03:00.125Z" }
+ wheels = [
+@@ -3903,9 +3913,9 @@ name = "pyobjc-framework-coretext"
+ version = "11.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
++    { name = "pyobjc-core" },
++    { name = "pyobjc-framework-cocoa" },
++    { name = "pyobjc-framework-quartz" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/9d/e8/9b68dc788828e38143a3e834e66346713751cb83d7f0955016323005c1a2/pyobjc_framework_coretext-11.0.tar.gz", hash = "sha256:a68437153e627847e3898754dd3f13ae0cb852246b016a91f9c9cbccb9f91a43", size = 274222, upload-time = "2025-01-14T19:03:21.521Z" }
+ wheels = [
+@@ -3920,8 +3930,8 @@ name = "pyobjc-framework-quartz"
+ version = "11.0"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "pyobjc-core", marker = "sys_platform == 'darwin'" },
+-    { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'" },
++    { name = "pyobjc-core" },
++    { name = "pyobjc-framework-cocoa" },
+ ]
+ sdist = { url = "https://files.pythonhosted.org/packages/a5/ad/f00f3f53387c23bbf4e0bb1410e11978cbf87c82fa6baff0ee86f74c5fb6/pyobjc_framework_quartz-11.0.tar.gz", hash = "sha256:3205bf7795fb9ae34747f701486b3db6dfac71924894d1f372977c4d70c3c619", size = 3952463, upload-time = "2025-01-14T19:05:07.931Z" }
+ wheels = [
+@@ -5001,7 +5011,7 @@ name = "triton"
+ version = "3.3.1"
+ source = { registry = "https://pypi.org/simple" }
+ dependencies = [
+-    { name = "setuptools", marker = "platform_machine != 'aarch64' and sys_platform == 'linux'" },
++    { name = "setuptools" },
+ ]
+ wheels = [
+     { url = "https://files.pythonhosted.org/packages/21/2f/3e56ea7b58f80ff68899b1dbe810ff257c9d177d288c6b0f55bf2fe4eb50/triton-3.3.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b31e3aa26f8cb3cc5bf4e187bf737cbacf17311e1112b781d4a059353dfd731b", size = 155689937, upload-time = "2025-05-29T23:39:44.182Z" },

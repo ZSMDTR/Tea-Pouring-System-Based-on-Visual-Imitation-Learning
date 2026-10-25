@@ -1,0 +1,26 @@
+# Local runtime state and machine-specific configuration.
+/.venvs/
+/.cache/
+/.migration/
+/calibration/
+/datasets/
+/models/
+/openpi/
+/openpi_fullsave/
+/lerobot/
+/lerobot-robot-seeed-b601/
+/b601_workbench/.runtime/
+/b601_workbench/data/*.sqlite3*
+/b601_workbench/data/official_center_ready.json
+/b601_workbench/config.json
+/b601_workbench/capture_profile.json
+/b601_workbench/vendor/seeed_gravity/10_gravity_compensation_lock.py
+/b601_workbench/vendor/seeed_gravity/gravity_compensation.py
+/b601_workbench/vendor/seeed_gravity/rebotarm_rs.yaml
+/b601_workbench/vendor/seeed_gravity/control_law.py
+**/__pycache__/
+*.pyc
+*.log
+*.bak
+*.before_*
+*.before*

@@ -1,0 +1,8 @@
+{
+  "dataset_root": "${B601_ROOT}/datasets/lerobot/local",
+  "checkpoint_root": "${B601_ROOT}/openpi/checkpoints/pi05_b601",
+  "base_model": "${B601_ROOT}/models/pi05_base",
+  "lerobot_python": "${B601_ROOT}/.venvs/lerobot/bin/python",
+  "openpi_python": "${B601_ROOT}/openpi/.venv/bin/python",
+  "can_interface": "can0"
+}
