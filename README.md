@@ -35,6 +35,7 @@ Windows 已枚举到本机 USB-CAN 为 candleLight (`1d50:606f`)；WSL 的 `can0
 切换到原生 Linux 前的项目、数据、训练输出和校准文件备份与恢复步骤见
 [原生 Linux 迁移交接](docs/native-linux-migration.md)。
 实物验收后按 [第一次训练](docs/training-start.md) 准备示教数据。
+从数据采集、模型调用到训练和测试的完整流程见 [B601 视觉模仿学习指南](docs/b601-visual-imitation-learning-workflow.md)。
 
 实物前的软件链路已补齐：受限关节模拟 → 原生 LeRobot 合成数据 → ACT 100步 GPU训练
 → 策略与预处理器重载。详见 [实物前开发与验收](docs/prehardware-development.md)。
